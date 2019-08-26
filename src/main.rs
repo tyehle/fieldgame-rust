@@ -63,18 +63,15 @@ impl App {
         self.roll_x += self.roll_v * args.dt;
     }
 
-    fn press(&mut self, args: Button) {
-        match args {
-            Button::Keyboard(Key::Right) => self.right = true,
-            Button::Keyboard(Key::Left) => self.left = true,
-            _ => {}
-        }
-    }
+    fn button(&mut self, args: &ButtonArgs) {
+        let pressed = match args.state {
+            ButtonState::Press => true,
+            ButtonState::Release => false
+        };
 
-    fn release(&mut self, button: Button) {
-        match button {
-            Button::Keyboard(Key::Right) => self.right = false,
-            Button::Keyboard(Key::Left) => self.left = false,
+        match args.button {
+            Button::Keyboard(Key::Right) => self.right = pressed,
+            Button::Keyboard(Key::Left) => self.left = pressed,
             _ => {}
         }
     }
@@ -108,9 +105,11 @@ fn main() {
 
     let mut events = Events::new(EventSettings::new());
     while let Some(e) = events.next(&mut window) {
-        e.render(|x| {app.render(x)});
-        e.update(|x| {app.update(x)});
-        e.press(|x| {app.press(x)});
-        e.release(|x| {app.release(x)});
+        match e {
+            Event::Loop(Loop::Render(args)) => app.render(&args),
+            Event::Loop(Loop::Update(args)) => app.update(&args),
+            Event::Input(Input::Button(args), _) => app.button(&args),
+            _ => {}
+        }
     }
 }
