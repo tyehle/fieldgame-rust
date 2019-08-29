@@ -175,10 +175,27 @@ impl Renderable for Cube {
             self.position + self.size,
         ];
 
+        let px = R3{x: self.position.x + self.size.x, y: self.position.y, z: self.position.z};
+        let py = R3{x: self.position.x, y: self.position.y + self.size.y, z: self.position.z};
+        let pz = R3{x: self.position.x, y: self.position.y, z: self.position.z + self.size.z};
+        let pxy = R3{x: self.position.x + self.size.x, y: self.position.y + self.size.y, z: self.position.z};
+        let pxz = R3{x: self.position.x + self.size.x, y: self.position.y, z: self.position.z + self.size.z};
+        let pyz = R3{x: self.position.x, y: self.position.y + self.size.y, z: self.position.z + self.size.z};
+        let pxyz = self.position + self.size;
+
         let lines = [
-            Line { a: self.position, b: self.position + R3{x: self.size.x, y: 0.0, z: 0.0}, color: self.color },
-            Line { a: self.position, b: self.position + R3{x: 0.0, y: self.size.y, z: 0.0}, color: self.color },
-            Line { a: self.position, b: self.position + R3{x: 0.0, y: 0.0, z: self.size.z}, color: self.color }
+            Line { a: self.position, b: px, color: self.color },
+            Line { a: self.position, b: py, color: self.color },
+            Line { a: self.position, b: pz, color: self.color },
+            Line { a: px, b: pxy, color: self.color },
+            Line { a: px, b: pxz, color: self.color },
+            Line { a: py, b: pxy, color: self.color },
+            Line { a: py, b: pyz, color: self.color },
+            Line { a: pz, b: pxz, color: self.color },
+            Line { a: pz, b: pyz, color: self.color },
+            Line { a: pxy, b: pxyz, color: self.color },
+            Line { a: pxz, b: pxyz, color: self.color },
+            Line { a: pyz, b: pxyz, color: self.color },
         ];
 
         for line in lines.iter() {
