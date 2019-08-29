@@ -1,5 +1,5 @@
-use std::ops;
 use graphics::Transformed;
+use std::ops;
 
 #[derive(Copy, Clone)]
 pub struct R3 {
@@ -72,6 +72,14 @@ fn cross(a: &R3, b: &R3) -> R3 {
     }
 }
 
+fn midpoint(a: &R3, b: &R3) -> R3 {
+    R3 {
+        x: (a.x+b.x) * 0.5,
+        y: (a.y+b.y) * 0.5,
+        z: (a.z+b.z) * 0.5
+    }
+}
+
 
 #[derive(Copy, Clone)]
 pub struct Camera {
@@ -85,16 +93,67 @@ pub trait Renderable {
     fn render<G: graphics::Graphics>(&self, c: &graphics::Context, g: &mut G, camera: Camera, center: graphics::math::Matrix2d);
 }
 
-// pub struct Line {
-//     a: R3,
-//     b: R3
-// }
+pub struct Line {
+    a: R3,
+    b: R3,
+    color: graphics::types::Color
+}
 
-// impl Renderable for Line {
-//     fn render(c: &graphics::Context, g: &mut G, camera: Camera) {
-//         // TODO
-//     }
-// }
+impl Line {
+    fn screen_points(&self, camera: Camera, resolution: f64) -> Vec<(f64, f64)> {
+        let mut done = Vec::new();
+        let mut todo = Vec::new();
+
+        done.push((self.a, to_screen_space(self.a, &camera)));
+        todo.push((self.b, to_screen_space(self.b, &camera)));
+
+        const MAX_LEVEL: i32 = 20;
+        let mut level = 0;
+        let mut branch_done = Vec::new();
+        branch_done.push(false);
+        while let Some((end, (end_x, end_y))) = todo.pop() {
+            let (begin, (begin_x, begin_y)) = done.last().expect("???");
+
+            let distance = ((begin_x - end_x).powi(2) + (begin_y - end_y).powi(2)).sqrt();
+
+            if distance <= resolution || level >= MAX_LEVEL {
+                done.push((end, (end_x, end_y)));
+
+                // complete all the branches we should
+                while branch_done.pop().expect("???") {
+                    level -= 1;
+                }
+                // note we are now going to finish this branch
+                branch_done.push(true);
+            } else {
+                todo.push((end, (end_x, end_y)));
+                let mid = midpoint(begin, &end);
+                todo.push((mid, to_screen_space(mid, &camera)));
+                level += 1;
+                branch_done.push(false);
+            }
+        }
+
+        return done.iter().map(|&x| x.1).collect();
+    }
+}
+
+impl Renderable for Line {
+    fn render<G: graphics::Graphics>(&self, c: &graphics::Context, g: &mut G, camera: Camera, center: graphics::math::Matrix2d) {
+        let mut points = self.screen_points(camera, 10.0);
+        let mut prev = points.pop().expect("???");
+        while let Some(next) = points.pop() {
+            graphics::Line::new(self.color, 1.0)
+                .draw([prev.0, prev.1, next.0, next.1], &c.draw_state, center, g);
+            // debug dots
+            // if !points.is_empty() {
+            //     graphics::Ellipse::new([1.0, 1.0, 1.0, 0.2])
+            //         .draw(graphics::ellipse::circle(0.0, 0.0, 2.0), &c.draw_state, center.trans(next.0, next.1), g);
+            // }
+            prev = next;
+        }
+    }
+}
 
 pub struct Cube {
     pub position: R3, // smallest corner
@@ -115,6 +174,16 @@ impl Renderable for Cube {
             self.position + R3{x: 0.0, y: self.size.y, z: self.size.z},
             self.position + self.size,
         ];
+
+        let lines = [
+            Line { a: self.position, b: self.position + R3{x: self.size.x, y: 0.0, z: 0.0}, color: self.color },
+            Line { a: self.position, b: self.position + R3{x: 0.0, y: self.size.y, z: 0.0}, color: self.color },
+            Line { a: self.position, b: self.position + R3{x: 0.0, y: 0.0, z: self.size.z}, color: self.color }
+        ];
+
+        for line in lines.iter() {
+            line.render(c, g, camera, center);
+        }
 
         let point_circle = graphics::ellipse::circle(0.0, 0.0, 4.0);
 

@@ -28,6 +28,7 @@ impl App {
 
         const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
         const RED:   [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+        const BLUE:  [f32; 4] = [0.0, 0.5, 1.0, 1.0];
 
 
         let cube = render::Cube {
@@ -49,6 +50,11 @@ impl App {
             clear(BLACK, gl);
 
             cube.render(&c, gl, camera, c.transform.trans(x, y));
+
+            // render some HUD stuff
+            Line::new(BLUE, 1.0).draw([0.0, -5.0, 0.0, 5.0], &c.draw_state, c.transform.trans(x, y), gl);
+            Line::new(BLUE, 1.0).draw([-5.0, 0.0, 5.0, 0.0], &c.draw_state, c.transform.trans(x, y), gl);
+            Ellipse::new_border(BLUE, 1.0).draw(rectangle::square(-540.0, -540.0, 1080.0), &c.draw_state, c.transform.trans(x, y), gl);
 
             // let transform = c.transform.trans(x, y)
             //                            .rot_rad(rotation)
@@ -130,7 +136,7 @@ fn main() {
         up: false,
         down: false,
         camera: render::Camera {
-            position: render::R3 {x: -200.0, y: 50.0, z: 50.0},
+            position: render::R3 {x: 200.0, y: 50.0, z: 50.0},
             forward: render::R3 {x: 1.0, y: 0.0, z: 0.0},
             right: render::R3 {x: 0.0, y: 1.0, z: 0.0},
             scale: 1080.0 / 3.14
