@@ -213,9 +213,9 @@ impl Renderable for Cube {
     }
 }
 
-fn to_screen_space(point: R3, camera: &Camera) -> (f64, f64) {
+pub fn to_screen_space(point: R3, camera: &Camera) -> (f64, f64) {
     let to_point = point - camera.position;
-    let alpha = dot(&to_point.normalized(), &camera.forward);
+    let alpha = dot(&to_point.normalized(), &camera.forward).acos();
     let beta = alpha / (to_point - camera.forward*dot(&to_point, &camera.forward)).norm();
 
     let x = beta * dot(&to_point, &camera.right);
