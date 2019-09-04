@@ -18,6 +18,8 @@ pub struct App {
     right: bool,     // input state
     up: bool,        // input state
     down: bool,      // input state
+    forward: bool,
+    back: bool,
     camera: render::Camera
 }
 
@@ -66,6 +68,16 @@ impl App {
     }
 
     fn update(&mut self, args: &UpdateArgs) {
+        let x = {
+            if self.forward && !self.back {
+                self.control_magnitude
+            } else if !self.forward && self.back {
+                -self.control_magnitude
+            } else {
+                0.0
+            }
+        };
+
         let y = {
             if self.right && !self.left {
                 self.control_magnitude
@@ -87,7 +99,7 @@ impl App {
         };
 
         // update camera position
-        let velocity = render::R3{x: 0.0, y: y, z: z};
+        let velocity = render::R3{x: x, y: y, z: z};
         self.camera = render::Camera {
             position: self.camera.position + velocity*args.dt,
             forward: self.camera.forward,
@@ -103,16 +115,36 @@ impl App {
         };
 
         match args.button {
-            Button::Keyboard(Key::Right) => self.right = pressed,
-            Button::Keyboard(Key::Left) => self.left = pressed,
-            Button::Keyboard(Key::Up) => self.up = pressed,
-            Button::Keyboard(Key::Down) => self.down = pressed,
+            Button::Keyboard(Key::D) => self.right = pressed,
+            Button::Keyboard(Key::A) => self.left = pressed,
+            Button::Keyboard(Key::W) => self.forward = pressed,
+            Button::Keyboard(Key::S) => self.back = pressed,
+            Button::Keyboard(Key::Space) => self.up = pressed,
+            Button::Keyboard(Key::C) => self.down = pressed,
+            Button::Keyboard(Key::LShift) => {},
             _ => {}
         }
     }
 }
 
 fn main() {
+    // let (x, y) = render::to_screen_space(
+    //     render::R3 {
+    //         x: 2.0,
+    //         y: 0.1,
+    //         z: 0.0,
+    //     },
+    //     &render::Camera {
+    //         position: render::R3 { x: 0.0, y: 0.0, z: 0.0 },
+    //         forward: render::R3 { x: 1.0, y: 0.0, z: 0.0 },
+    //         right: render::R3 { x: 0.0, y: 1.0, z: 0.0 },
+    //         scale: 1.0,
+    //     }
+    // );
+    // println!("({}, {})", x, y);
+
+    // return;
+
     // Change this to OpenGL::V2_1 if not working.
     let opengl = OpenGL::V3_2;
 
@@ -135,11 +167,13 @@ fn main() {
         right: false,
         up: false,
         down: false,
+        forward: false,
+        back: false,
         camera: render::Camera {
-            position: render::R3 {x: 200.0, y: 50.0, z: 50.0},
+            position: render::R3 {x: 50.0, y: 50.0, z: 50.0},
             forward: render::R3 {x: 1.0, y: 0.0, z: 0.0},
             right: render::R3 {x: 0.0, y: 1.0, z: 0.0},
-            scale: 1080.0 / 3.14
+            scale: 1080.0 / 3.14 / 2.0
         }
     };
 

@@ -1,11 +1,17 @@
 use graphics::Transformed;
 use std::ops;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct R3 {
     pub x: f64,
     pub y: f64,
     pub z: f64
+}
+
+impl std::fmt::Display for R3 {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "({}, {}, {})", self.x, self.y, self.z)
+    }
 }
 
 impl ops::Add for R3 {
@@ -81,7 +87,7 @@ fn midpoint(a: &R3, b: &R3) -> R3 {
 }
 
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Camera {
     pub position: R3,
     pub forward: R3,
@@ -107,7 +113,7 @@ impl Line {
         done.push((self.a, to_screen_space(self.a, &camera)));
         todo.push((self.b, to_screen_space(self.b, &camera)));
 
-        const MAX_LEVEL: i32 = 20;
+        const MAX_LEVEL: i32 = 5;
         let mut level = 0;
         let mut branch_done = Vec::new();
         branch_done.push(false);
@@ -140,14 +146,14 @@ impl Line {
 
 impl Renderable for Line {
     fn render<G: graphics::Graphics>(&self, c: &graphics::Context, g: &mut G, camera: Camera, center: graphics::math::Matrix2d) {
-        let mut points = self.screen_points(camera, 10.0);
+        let mut points = self.screen_points(camera, 50.0);
         let mut prev = points.pop().expect("???");
         while let Some(next) = points.pop() {
             graphics::Line::new(self.color, 1.0)
                 .draw([prev.0, prev.1, next.0, next.1], &c.draw_state, center, g);
             // debug dots
             // if !points.is_empty() {
-            //     graphics::Ellipse::new([1.0, 1.0, 1.0, 0.2])
+            //     graphics::Ellipse::new([1.0, 1.0, 1.0, 0.5])
             //         .draw(graphics::ellipse::circle(0.0, 0.0, 2.0), &c.draw_state, center.trans(next.0, next.1), g);
             // }
             prev = next;
@@ -215,10 +221,18 @@ impl Renderable for Cube {
 
 pub fn to_screen_space(point: R3, camera: &Camera) -> (f64, f64) {
     let to_point = point - camera.position;
-    let alpha = dot(&to_point.normalized(), &camera.forward).acos();
-    let beta = alpha / (to_point - camera.forward*dot(&to_point, &camera.forward)).norm();
 
-    let x = beta * dot(&to_point, &camera.right);
-    let y = beta * dot(&to_point, &cross(&camera.forward, &camera.right));
-    (camera.scale * x, camera.scale * y)
+    let alpha = dot(&to_point.normalized(), &camera.forward).acos();
+
+    // Don't vom when at the poles
+    if alpha == 0.0 {
+        (0.0, 0.0)
+    } else if alpha == std::f64::consts::PI {
+        (camera.scale * alpha, 0.0)
+    } else {
+        let beta = alpha / (to_point - camera.forward*dot(&to_point, &camera.forward)).norm();
+        let x = beta * dot(&to_point, &camera.right);
+        let y = beta * dot(&to_point, &cross(&camera.forward, &camera.right));
+        (camera.scale * x, camera.scale * y)
+    }
 }
