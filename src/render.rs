@@ -1,6 +1,8 @@
 use graphics::Transformed;
 use std::ops;
 
+use super::quaternion;
+
 #[derive(Copy, Clone, Debug)]
 pub struct R3 {
     pub x: f64,
@@ -62,6 +64,12 @@ impl R3 {
 
     fn norm(&self) -> f64 {
         dot(&self, &self).sqrt()
+    }
+
+    pub fn rotate(&self, theta: f64, axis: R3) -> R3 {
+        let q = quaternion::from_real_imaginary((theta/2.0).cos(), &(axis * (theta/2.0).sin()));
+        let p = quaternion::from_real_imaginary(0.0, self);
+        (q * p * q.inverse()).imaginary_component()
     }
 }
 
@@ -260,20 +268,20 @@ impl Renderable for Cube {
             Line { a: pyz, b: pxyz, color: self.color },
         ];
 
-        render_face(vec!(pz, pxz, pxyz, pyz), c, g, camera, center);
+        // render_face(vec!(pz, pxz, pxyz, pyz), c, g, camera, center);
 
-        // for line in lines.iter() {
-        //     line.render(c, g, camera, center);
-        // }
+        for line in lines.iter() {
+            line.render(c, g, camera, center);
+        }
 
-        // let point_circle = graphics::ellipse::circle(0.0, 0.0, 4.0);
+        let point_circle = graphics::ellipse::circle(0.0, 0.0, 4.0);
 
-        // for point in points.iter() {
-        //     let [x, y] = to_screen_space(*point, &camera);
+        for point in points.iter() {
+            let [x, y] = to_screen_space(*point, &camera);
 
-        //     graphics::Ellipse::new(self.color)
-        //         .draw(point_circle, &c.draw_state, center.trans(x, y), g);
-        // }
+            graphics::Ellipse::new(self.color)
+                .draw(point_circle, &c.draw_state, center.trans(x, y), g);
+        }
     }
 }
 

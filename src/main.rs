@@ -10,16 +10,19 @@ use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{ GlGraphics, OpenGL };
 
 mod render;
+mod quaternion;
 
 pub struct App {
     gl: GlGraphics,  // OpenGL drawing backend
     control_magnitude: f64,     // size of roll control input
+    acceleration: f64,
     left: bool,      // input state
     right: bool,     // input state
     up: bool,        // input state
     down: bool,      // input state
     forward: bool,
     back: bool,
+    velocity: f64,
     camera: render::Camera
 }
 
@@ -70,17 +73,20 @@ impl App {
     }
 
     fn update(&mut self, args: &UpdateArgs) {
-        let x = {
+        // pitch
+        let pitch_rate = {
             if self.forward && !self.back {
-                self.control_magnitude
-            } else if !self.forward && self.back {
                 -self.control_magnitude
+            } else if !self.forward && self.back {
+                self.control_magnitude
             } else {
                 0.0
             }
         };
+        let forward = self.camera.forward.rotate(pitch_rate*args.dt, self.camera.right);
 
-        let y = {
+        // roll
+        let roll_rate = {
             if self.right && !self.left {
                 self.control_magnitude
             } else if !self.right && self.left {
@@ -89,23 +95,25 @@ impl App {
                 0.0
             }
         };
+        // rotate around the new forward vector to keep them orthogonal
+        let right = self.camera.right.rotate(roll_rate*args.dt, forward);
 
-        let z = {
+        // speed
+        let a = {
             if self.up && !self.down {
-                -self.control_magnitude
+                -self.acceleration
             } else if !self.up && self.down {
-                self.control_magnitude
+                self.acceleration
             } else {
                 0.0
             }
         };
+        self.velocity = self.velocity + a*args.dt;
 
-        // update camera position
-        let velocity = render::R3{x: x, y: y, z: z};
         self.camera = render::Camera {
-            position: self.camera.position + velocity*args.dt,
-            forward: self.camera.forward,
-            right: self.camera.right,
+            position: self.camera.position + forward*self.velocity*args.dt,
+            forward: forward,
+            right: right,
             scale: self.camera.scale
         }
     }
@@ -164,13 +172,15 @@ fn main() {
 
     let mut app = App {
         gl: GlGraphics::new(opengl),
-        control_magnitude: 200.0,
+        control_magnitude: 2.0,
+        acceleration: 20.0,
         left: false,
         right: false,
         up: false,
         down: false,
         forward: false,
         back: false,
+        velocity: 20.0,
         camera: render::Camera {
             position: render::R3 {x: 50.0, y: 50.0, z: 50.0},
             forward: render::R3 {x: 1.0, y: 0.0, z: 0.0},
