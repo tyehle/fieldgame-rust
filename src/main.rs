@@ -54,8 +54,10 @@ impl App {
             cube.render(&c, gl, camera, c.transform.trans(x, y));
 
             // render some HUD stuff
+            // TODO: Figure out how big the screen actually is
             Line::new(BLUE, 1.0).draw([0.0, -5.0, 0.0, 5.0], &c.draw_state, c.transform.trans(x, y), gl);
             Line::new(BLUE, 1.0).draw([-5.0, 0.0, 5.0, 0.0], &c.draw_state, c.transform.trans(x, y), gl);
+            Ellipse::new_border(BLUE, 0.5).draw(rectangle::square(-270.0, -270.0, 540.0), &c.draw_state, c.transform.trans(x, y), gl);
             Ellipse::new_border(BLUE, 1.0).draw(rectangle::square(-540.0, -540.0, 1080.0), &c.draw_state, c.transform.trans(x, y), gl);
 
             // let transform = c.transform.trans(x, y)
