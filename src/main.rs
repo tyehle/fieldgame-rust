@@ -1,13 +1,14 @@
-extern crate piston;
-extern crate graphics;
-extern crate glutin_window;
-extern crate opengl_graphics;
+// extern crate piston;
+// extern crate graphics;
+// extern crate glutin_window;
+// extern crate opengl_graphics;
 
 use piston::window::WindowSettings;
 use piston::event_loop::*;
 use piston::input::*;
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{ GlGraphics, OpenGL };
+use piston::window::OpenGLWindow;
 
 mod render;
 mod quaternion;
@@ -23,7 +24,8 @@ pub struct App {
     forward: bool,
     back: bool,
     velocity: f64,
-    camera: render::Camera
+    camera: render::Camera,
+    draw_hud: bool
 }
 
 impl App {
@@ -49,6 +51,7 @@ impl App {
         let (x, y) = (args.window_size[0] / 2.0,
                       args.window_size[1] / 2.0);
         let camera = self.camera;
+        let draw_hud = self.draw_hud;
 
         self.gl.draw(args.viewport(), |c, gl| {
             // Clear the screen.
@@ -56,12 +59,14 @@ impl App {
 
             cube.render(&c, gl, camera, c.transform.trans(x, y));
 
-            // render some HUD stuff
-            // TODO: Figure out how big the screen actually is
-            Line::new(BLUE, 1.0).draw([0.0, -5.0, 0.0, 5.0], &c.draw_state, c.transform.trans(x, y), gl);
-            Line::new(BLUE, 1.0).draw([-5.0, 0.0, 5.0, 0.0], &c.draw_state, c.transform.trans(x, y), gl);
-            Ellipse::new_border(BLUE, 0.5).draw(rectangle::square(-270.0, -270.0, 540.0), &c.draw_state, c.transform.trans(x, y), gl);
-            Ellipse::new_border(BLUE, 1.0).draw(rectangle::square(-540.0, -540.0, 1080.0), &c.draw_state, c.transform.trans(x, y), gl);
+            if draw_hud {
+                // render some HUD stuff
+                // TODO: Figure out how big the screen actually is
+                Line::new(BLUE, 1.0).draw([0.0, -5.0, 0.0, 5.0], &c.draw_state, c.transform.trans(x, y), gl);
+                Line::new(BLUE, 1.0).draw([-5.0, 0.0, 5.0, 0.0], &c.draw_state, c.transform.trans(x, y), gl);
+                Ellipse::new_border(BLUE, 0.5).draw(rectangle::square(-270.0, -270.0, 540.0), &c.draw_state, c.transform.trans(x, y), gl);
+                Ellipse::new_border(BLUE, 1.0).draw(rectangle::square(-540.0, -540.0, 1080.0), &c.draw_state, c.transform.trans(x, y), gl);
+            }
 
             // let transform = c.transform.trans(x, y)
             //                            .rot_rad(rotation)
@@ -88,9 +93,9 @@ impl App {
         // roll
         let roll_rate = {
             if self.right && !self.left {
-                self.control_magnitude
-            } else if !self.right && self.left {
                 -self.control_magnitude
+            } else if !self.right && self.left {
+                self.control_magnitude
             } else {
                 0.0
             }
@@ -131,6 +136,8 @@ impl App {
             Button::Keyboard(Key::S) => self.back = pressed,
             Button::Keyboard(Key::Space) => self.up = pressed,
             Button::Keyboard(Key::C) => self.down = pressed,
+            Button::Keyboard(Key::H) => if pressed { self.draw_hud = !self.draw_hud; }
+            Button::Keyboard(Key::X) => if pressed { self.velocity = 0.0; }
             Button::Keyboard(Key::LShift) => {},
             _ => {}
         }
@@ -170,10 +177,13 @@ fn main() {
         .build()
         .unwrap();
 
+    // init the opengl function pointers
+    gl::load_with(|s| window.get_proc_address(s) as *const _);
+
     let mut app = App {
         gl: GlGraphics::new(opengl),
-        control_magnitude: 2.0,
-        acceleration: 20.0,
+        control_magnitude: 1.0,
+        acceleration: 40.0,
         left: false,
         right: false,
         up: false,
@@ -186,7 +196,8 @@ fn main() {
             forward: render::R3 {x: 1.0, y: 0.0, z: 0.0},
             right: render::R3 {x: 0.0, y: 1.0, z: 0.0},
             scale: 1080.0 / 3.14 / 2.0
-        }
+        },
+        draw_hud: true
     };
 
     let mut events = Events::new(EventSettings::new());

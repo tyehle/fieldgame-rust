@@ -1,3 +1,5 @@
+use gl;
+use graphics::Graphics;
 use graphics::Transformed;
 use std::ops;
 
@@ -13,6 +15,18 @@ pub struct R3 {
 impl std::fmt::Display for R3 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "({}, {}, {})", self.x, self.y, self.z)
+    }
+}
+
+impl ops::Neg for R3 {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        R3 {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+        }
     }
 }
 
@@ -104,7 +118,7 @@ pub struct Camera {
 }
 
 pub trait Renderable {
-    fn render<G: graphics::Graphics>(&self, c: &graphics::Context, g: &mut G, camera: Camera, center: graphics::math::Matrix2d);
+    fn render(&self, c: &graphics::Context, g: &mut opengl_graphics::GlGraphics, camera: Camera, center: graphics::math::Matrix2d);
 }
 
 pub struct Line {
@@ -113,12 +127,12 @@ pub struct Line {
     color: graphics::types::Color
 }
 
-fn approximate_curve(a: R3, b: R3, camera: Camera, resolution: f64, max_split: i32) -> Vec<[f64; 2]> {
+fn approximate_curve(a: &R3, b: &R3, camera: Camera, resolution: f64, max_split: i32) -> Vec<[f64; 2]> {
     let mut done = Vec::new();
     let mut todo = Vec::new();
 
-    done.push((a, to_screen_space(a, &camera)));
-    todo.push((b, to_screen_space(b, &camera)));
+    done.push((*a, to_screen_space(a, &camera)));
+    todo.push((*b, to_screen_space(b, &camera)));
 
     let mut level = 0;
     let mut branch_done = Vec::new();
@@ -140,7 +154,7 @@ fn approximate_curve(a: R3, b: R3, camera: Camera, resolution: f64, max_split: i
         } else {
             todo.push((end, [end_x, end_y]));
             let mid = midpoint(begin, &end);
-            todo.push((mid, to_screen_space(mid, &camera)));
+            todo.push((mid, to_screen_space(&mid, &camera)));
             level += 1;
             branch_done.push(false);
         }
@@ -150,8 +164,8 @@ fn approximate_curve(a: R3, b: R3, camera: Camera, resolution: f64, max_split: i
 }
 
 impl Renderable for Line {
-    fn render<G: graphics::Graphics>(&self, c: &graphics::Context, g: &mut G, camera: Camera, center: graphics::math::Matrix2d) {
-        let mut points = approximate_curve(self.a, self.b, camera, 50.0, 7);
+    fn render(&self, c: &graphics::Context, g: &mut opengl_graphics::GlGraphics, camera: Camera, center: graphics::math::Matrix2d) {
+        let mut points = approximate_curve(&self.a, &self.b, camera, 50.0, 9);
         let mut prev = points.pop().expect("???");
         while let Some(next) = points.pop() {
             graphics::Line::new(self.color, 1.0)
@@ -167,21 +181,50 @@ impl Renderable for Line {
 }
 
 
-fn draw_poly<G: graphics::Graphics>(color: [f32; 4],
+fn intersects_parallelogram(origin: &R3, direction: &R3, face: [R3; 4]) -> bool {
+    let [a, b, _, c] = face;
+
+    let normal = cross(&(a-b), &(a-c));
+    let ao = a - *origin;
+    let m = cross(direction, &ao);
+
+    // divides are much more expensive than multiplies, so only do it once here
+    let invdet = 1.0 / dot(direction, &normal);
+
+    let t = dot(&ao, &normal) * invdet;
+    let u = dot(&(a - c), &m) * invdet;
+    let v = -dot(&(a - b), &m) * invdet;
+
+    t >= 0.0 && u >= 0.0 && u <= 1.0 && v >= 0.0 && v <= 1.0
+}
+
+
+fn flush_graphics(transform: graphics::math::Matrix2d, g: &mut opengl_graphics::GlGraphics) {
+    let color = [0.0, 0.0, 0.0, 1.0];
+    let rect = [-540.0, -540.0, 1.0, 1.0];
+    graphics::Rectangle::new(color).draw(rect, &graphics::DrawState::default(), transform, g);
+    g.clear_draw_state();
+    graphics::Rectangle::new(color).draw(rect, &graphics::DrawState::default(), transform, g);
+}
+
+
+fn draw_poly(color: [f32; 4],
              poly: Vec<[f64; 2]>,
-             draw_state: &graphics::DrawState,
+             is_behind: bool,
+             _draw_state: &graphics::DrawState,
              transform: graphics::math::Matrix2d,
-             g: &mut G
+             g: &mut opengl_graphics::GlGraphics
              ) {
-    // this draws a convex polygon ...
-    // graphics::Polygon::new(color)
-    //     .draw(&poly[..], draw_state, transform, g);
+    // flush any old graphics before manually messing with the draw state
+    flush_graphics(transform, g);
 
-
-    // use the stencil and invert
+    // cannot set blend to invert on the clip draw state
+    let clip = graphics::DrawState::new_clip();
+    g.use_draw_state(&clip);
     g.clear_stencil(0);
-    // let clip = graphics::DrawState::new_clip().blend(graphics::draw_state::Blend::Invert);
-    let clip = draw_state.blend(graphics::draw_state::Blend::Invert);
+    unsafe {
+        gl::StencilOp(gl::INVERT, gl::KEEP, gl::KEEP);
+    }
 
     let p = graphics::Polygon::new([1.0, 1.0, 1.0, 1.0]);
     let anchor = poly[0];
@@ -190,39 +233,43 @@ fn draw_poly<G: graphics::Graphics>(color: [f32; 4],
         p.draw(&[anchor, prev, *next], &clip, transform, g);
         prev = *next;
     }
-    // graphics::Rectangle::new(color)
-    //     .draw([-540.0, -540.0, 1080.0, 1080.0], &graphics::DrawState::new_inside(), transform, g);
+
+    if is_behind {
+        // invert the stencil
+        graphics::Ellipse::new([1.0, 1.0, 1.0, 1.0]).draw(graphics::rectangle::square(-540.0, -540.0, 1080.0), &clip, transform, g);
+    }
+
+    graphics::Rectangle::new(color)
+        .draw([-540.0, -540.0, 1080.0, 1080.0], &graphics::DrawState::new_inside(), transform, g);
+
+    flush_graphics(transform, g);
 
     // debug points
-    let mut n = 0;
-    for p in poly.clone() {
-        let shade = n as f32 / poly.len() as f32;
-        graphics::Ellipse::new([1.0-shade, 1.0, shade, 1.0])
-            .draw(graphics::ellipse::circle(0.0, 0.0, 2.0), draw_state, transform.trans(p[0], p[1]), g);
-        n += 1;
-    }
+    // let mut n = 0;
+    // for p in poly.clone() {
+    //     let shade = n as f32 / poly.len() as f32;
+    //     graphics::Ellipse::new([1.0-shade, 1.0, shade, 1.0])
+    //         .draw(graphics::ellipse::circle(0.0, 0.0, 2.0), draw_state, transform.trans(p[0], p[1]), g);
+    //     n += 1;
+    // }
 }
 
-fn render_face<G: graphics::Graphics>(vertices: Vec<R3>, c: &graphics::Context, g: &mut G, camera: Camera, center: graphics::math::Matrix2d) {
-    // TODO: check if the face goes directly behind the camera
-    if false {
-        // TODO: Render face behind the camera???
-        return;
-    }
-
+fn render_parallelogram(vertices: [R3; 4], c: &graphics::Context, g: &mut opengl_graphics::GlGraphics, camera: Camera, center: graphics::math::Matrix2d) {
     const FACE_COLOR: [f32; 4] = [0.5, 0.0, 0.5, 0.25];
 
     let resolution = 50.0;
     let max_split = 7;
 
     let mut points = Vec::new();
-    let mut prev = *vertices.last().expect("no vertices");
-    for next in vertices {
+    let mut prev = vertices.last().expect("no vertices");
+    for next in vertices.iter() {
         points.append(&mut approximate_curve(prev, next, camera, resolution, max_split));
         prev = next;
     }
 
-    draw_poly(FACE_COLOR, points, &c.draw_state, center, g);
+    let is_behind = intersects_parallelogram(&camera.position, &(-camera.forward), vertices);
+
+    draw_poly(FACE_COLOR, points, is_behind, &c.draw_state, center, g);
 }
 
 pub struct Cube {
@@ -233,7 +280,7 @@ pub struct Cube {
 }
 
 impl Renderable for Cube {
-    fn render<G: graphics::Graphics>(&self, c: &graphics::Context, g: &mut G, camera: Camera, center: graphics::math::Matrix2d) {
+    fn render(&self, c: &graphics::Context, g: &mut opengl_graphics::GlGraphics, camera: Camera, center: graphics::math::Matrix2d) {
         let points = [
             self.position,
             self.position + R3{x: self.size.x, y: 0.0, z: 0.0},
@@ -268,7 +315,12 @@ impl Renderable for Cube {
             Line { a: pyz, b: pxyz, color: self.color },
         ];
 
-        // render_face(vec!(pz, pxz, pxyz, pyz), c, g, camera, center);
+        render_parallelogram([self.position, pz, pxz, px], c, g, camera, center);
+        render_parallelogram([self.position, pz, pyz, py], c, g, camera, center);
+        render_parallelogram([self.position, px, pxy, py], c, g, camera, center);
+        render_parallelogram([pxyz, pxy, py, pyz], c, g, camera, center);
+        render_parallelogram([pxyz, pxy, px, pxz], c, g, camera, center);
+        render_parallelogram([pxyz, pyz, pz, pxz], c, g, camera, center);
 
         for line in lines.iter() {
             line.render(c, g, camera, center);
@@ -277,7 +329,7 @@ impl Renderable for Cube {
         let point_circle = graphics::ellipse::circle(0.0, 0.0, 4.0);
 
         for point in points.iter() {
-            let [x, y] = to_screen_space(*point, &camera);
+            let [x, y] = to_screen_space(point, &camera);
 
             graphics::Ellipse::new(self.color)
                 .draw(point_circle, &c.draw_state, center.trans(x, y), g);
@@ -285,8 +337,8 @@ impl Renderable for Cube {
     }
 }
 
-pub fn to_screen_space(point: R3, camera: &Camera) -> [f64; 2] {
-    let to_point = point - camera.position;
+pub fn to_screen_space(point: &R3, camera: &Camera) -> [f64; 2] {
+    let to_point = *point - camera.position;
 
     let alpha = dot(&to_point.normalized(), &camera.forward).acos();
 
