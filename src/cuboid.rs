@@ -28,18 +28,18 @@ impl Renderable for Cuboid {
         let pxyz = self.position + self.size;
 
         // render wireframe
-        Line { a: self.position, b: px, color: self.color }.render(c, g, camera, center);
-        Line { a: self.position, b: py, color: self.color }.render(c, g, camera, center);
-        Line { a: self.position, b: pz, color: self.color }.render(c, g, camera, center);
-        Line { a: px, b: pxy, color: self.color }.render(c, g, camera, center);
-        Line { a: px, b: pxz, color: self.color }.render(c, g, camera, center);
-        Line { a: py, b: pxy, color: self.color }.render(c, g, camera, center);
-        Line { a: py, b: pyz, color: self.color }.render(c, g, camera, center);
-        Line { a: pz, b: pxz, color: self.color }.render(c, g, camera, center);
-        Line { a: pz, b: pyz, color: self.color }.render(c, g, camera, center);
-        Line { a: pxy, b: pxyz, color: self.color }.render(c, g, camera, center);
-        Line { a: pxz, b: pxyz, color: self.color }.render(c, g, camera, center);
-        Line { a: pyz, b: pxyz, color: self.color }.render(c, g, camera, center);
+        render_line(self.color, &self.position, &px, c, g, camera, center);
+        render_line(self.color, &self.position, &py, c, g, camera, center);
+        render_line(self.color, &self.position, &pz, c, g, camera, center);
+        render_line(self.color, &px, &pxy, c, g, camera, center);
+        render_line(self.color, &px, &pxz, c, g, camera, center);
+        render_line(self.color, &py, &pxy, c, g, camera, center);
+        render_line(self.color, &py, &pyz, c, g, camera, center);
+        render_line(self.color, &pz, &pxz, c, g, camera, center);
+        render_line(self.color, &pz, &pyz, c, g, camera, center);
+        render_line(self.color, &pxy, &pxyz, c, g, camera, center);
+        render_line(self.color, &pxz, &pxyz, c, g, camera, center);
+        render_line(self.color, &pyz, &pxyz, c, g, camera, center);
 
         let mut face_color = self.color;
         face_color[3] *= 0.25;

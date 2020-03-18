@@ -17,12 +17,6 @@ pub trait Renderable {
     fn render(&self, c: &graphics::Context, g: &mut opengl_graphics::GlGraphics, camera: Camera, center: graphics::math::Matrix2d);
 }
 
-pub struct Line {
-    pub a: R3,
-    pub b: R3,
-    pub color: graphics::types::Color
-}
-
 fn approximate_curve(a: &R3, b: &R3, camera: Camera, resolution: f64, max_split: i32) -> Vec<[f64; 2]> {
     let mut done = Vec::new();
     let mut todo = Vec::new();
@@ -59,23 +53,20 @@ fn approximate_curve(a: &R3, b: &R3, camera: Camera, resolution: f64, max_split:
     done.iter().map(|&x| x.1).collect()
 }
 
-impl Renderable for Line {
-    fn render(&self, c: &graphics::Context, g: &mut opengl_graphics::GlGraphics, camera: Camera, center: graphics::math::Matrix2d) {
-        let mut points = approximate_curve(&self.a, &self.b, camera, 40.0, 9);
-        let mut prev = points.pop().expect("???");
-        while let Some(next) = points.pop() {
-            graphics::Line::new(self.color, 1.0)
-                .draw([prev[0], prev[1], next[0], next[1]], &c.draw_state, center, g);
-            // debug dots
-            // if !points.is_empty() {
-            //     graphics::Ellipse::new([1.0, 1.0, 1.0, 0.5])
-            //         .draw(graphics::ellipse::circle(0.0, 0.0, 2.0), &c.draw_state, center.trans(next[0], next[1]), g);
-            // }
-            prev = next;
-        }
+pub fn render_line(color: graphics::types::Color, a: &R3, b: &R3, c: &graphics::Context, g: &mut opengl_graphics::GlGraphics, camera: Camera, center: graphics::math::Matrix2d) {
+    let mut points = approximate_curve(a, b, camera, 40.0, 9);
+    let mut prev = points.pop().expect("???");
+    while let Some(next) = points.pop() {
+        graphics::Line::new(color, 1.0)
+            .draw([prev[0], prev[1], next[0], next[1]], &c.draw_state, center, g);
+        // debug dots
+        // if !points.is_empty() {
+        //     graphics::Ellipse::new([1.0, 1.0, 1.0, 0.5])
+        //         .draw(graphics::ellipse::circle(0.0, 0.0, 2.0), &c.draw_state, center.trans(next[0], next[1]), g);
+        // }
+        prev = next;
     }
 }
-
 
 fn intersects_parallelogram(origin: &R3, direction: &R3, face: [R3; 4]) -> bool {
     let [a, b, _, c] = face;
