@@ -17,6 +17,7 @@ use r3::*;
 mod render;
 use render::Renderable;
 mod quaternion;
+use quaternion::*;
 
 pub struct App {
     gl: GlGraphics,  // OpenGL drawing backend
@@ -68,7 +69,7 @@ fn initial_app(gl: GlGraphics, control_magnitude: f64, acceleration: f64, veloci
 }
 
 impl App {
-    fn render(&mut self, args: &RenderArgs) {
+    fn render(&mut self, args: RenderArgs) {
         use graphics::*;
 
         const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
@@ -99,11 +100,6 @@ impl App {
 
             cube.render(&c, gl, camera, c.transform.trans(x, y));
 
-            // let testing =
-
-            circle_arc::CircleArc::new(BLUE, 4.0, 0.0, 1.0)
-                .draw(rectangle::square(-200.0, -200.0, 400.0), &c.draw_state, c.transform.trans(x, y), gl);
-
             if draw_hud {
                 // render some HUD stuff
                 // TODO: Figure out how big the screen actually is
@@ -122,7 +118,7 @@ impl App {
         });
     }
 
-    fn update(&mut self, args: &UpdateArgs) {
+    fn update(&mut self, args: UpdateArgs) {
         // pitch
         let pitch_rate = {
             if self.forward && !self.back {
@@ -133,7 +129,8 @@ impl App {
                 0.0
             }
         };
-        let forward = self.camera.forward.rotate(pitch_rate*args.dt, self.camera.right);
+        const RIGHT: R3 = R3 { x: 0.0, y: 1.0, z: 0.0 };
+        let o1 = self.camera.orientation * rotation(RIGHT, pitch_rate * args.dt);
 
         // roll
         let roll_rate = {
@@ -146,7 +143,8 @@ impl App {
             }
         };
         // rotate around the new forward vector to keep them orthogonal
-        let right = self.camera.right.rotate(roll_rate*args.dt, forward);
+        const FORWARD: R3 = R3 { x: 1.0, y: 0.0, z: 0.0 };
+        let orientation = o1 * rotation(FORWARD, roll_rate * args.dt);
 
         // speed
         let a = {
@@ -158,24 +156,25 @@ impl App {
                 0.0
             }
         };
-        self.velocity = self.velocity + a*args.dt;
+        self.velocity += a * args.dt;
+
+        let forward = orientation.rotate(&FORWARD);
 
         self.camera = render::Camera {
             position: self.camera.position + forward*self.velocity*args.dt,
-            forward: forward,
-            right: right,
+            orientation,
             scale: self.camera.scale
         };
 
         let was_inside = self.in_cube;
         self.in_cube = inside(&R3{x: 0.0, y: 0.0, z: 0.0}, &R3{x: 100.0, y: 100.0, z: 100.0}, &self.camera.position);
         if was_inside && !self.in_cube {
-            self.velocity = self.velocity + self.acceleration * 4.0;
+            self.velocity += self.acceleration * 4.0;
             // self.camera.position = self.camera.position + R3{x: 200.0, y: 0.0, z: 0.0};
         }
     }
 
-    fn button(&mut self, args: &ButtonArgs) {
+    fn button(&mut self, args: ButtonArgs) {
         let pressed = match args.state {
             ButtonState::Press => true,
             ButtonState::Release => false
@@ -203,23 +202,6 @@ fn inside(corner: &R3, size: &R3, pos: &R3) -> bool {
 }
 
 fn main() {
-    // let (x, y) = render::to_screen_space(
-    //     render::R3 {
-    //         x: 2.0,
-    //         y: 0.1,
-    //         z: 0.0,
-    //     },
-    //     &render::Camera {
-    //         position: render::R3 { x: 0.0, y: 0.0, z: 0.0 },
-    //         forward: render::R3 { x: 1.0, y: 0.0, z: 0.0 },
-    //         right: render::R3 { x: 0.0, y: 1.0, z: 0.0 },
-    //         scale: 1.0,
-    //     }
-    // );
-    // println!("({}, {})", x, y);
-
-    // return;
-
     // Change this to OpenGL::V2_1 if not working.
     let opengl = OpenGL::V3_2;
 
@@ -239,40 +221,19 @@ fn main() {
     gl::load_with(|s| window.get_proc_address(s) as *const _);
 
     let camera = render::Camera {
-        position: R3 {x: 50.0, y: 50.0, z: 50.0},
-        forward: R3 {x: 1.0, y: 0.0, z: 0.0},
-        right: R3 {x: 0.0, y: 1.0, z: 0.0},
-        scale: 1080.0 / 3.14 / 2.0
+        position: R3 { x: 50.0, y: 50.0, z: 50.0 },
+        orientation: Quaternion { r: 1.0, i: 0.0, j: 0.0, k: 0.0 },
+        scale: 1080.0 / std::f64::consts::PI / 2.0
     };
 
     let mut app = initial_app(GlGraphics::new(opengl), 1.0, 40.0, 20.0, camera, SystemTime::now(), 10);
 
-    // let mut app = App {
-    //     gl: GlGraphics::new(opengl),
-    //     control_magnitude: 1.0,
-    //     acceleration: 40.0,
-    //     left: false,
-    //     right: false,
-    //     up: false,
-    //     down: false,
-    //     forward: false,
-    //     back: false,
-    //     velocity: 20.0,
-    //     camera: render::Camera {
-    //         position: render::R3 {x: 50.0, y: 50.0, z: 50.0},
-    //         forward: render::R3 {x: 1.0, y: 0.0, z: 0.0},
-    //         right: render::R3 {x: 0.0, y: 1.0, z: 0.0},
-    //         scale: 1080.0 / 3.14 / 2.0
-    //     },
-    //     draw_hud: true
-    // };
-
     let mut events = Events::new(EventSettings::new());
     while let Some(e) = events.next(&mut window) {
         match e {
-            Event::Loop(Loop::Render(args)) => app.render(&args),
-            Event::Loop(Loop::Update(args)) => app.update(&args),
-            Event::Input(Input::Button(args), _) => app.button(&args),
+            Event::Loop(Loop::Render(args)) => app.render(args),
+            Event::Loop(Loop::Update(args)) => app.update(args),
+            Event::Input(Input::Button(args), _) => app.button(args),
             _ => {}
         }
     }

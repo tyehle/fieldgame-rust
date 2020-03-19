@@ -2,14 +2,14 @@ use gl;
 use graphics::Graphics;
 use graphics::Transformed;
 
+use super::quaternion::Quaternion;
 use super::r3::*;
 
 
 #[derive(Copy, Clone, Debug)]
 pub struct Camera {
     pub position: R3,
-    pub forward: R3,
-    pub right: R3,
+    pub orientation: Quaternion,
     pub scale: f64
 }
 
@@ -132,12 +132,10 @@ fn draw_poly(color: [f32; 4],
     flush_graphics(transform, g);
 
     // debug points
-    let mut n = 0;
-    for p in poly.clone() {
+    for (n, p) in poly.iter().enumerate() {
         let shade = n as f32 / poly.len() as f32;
         graphics::Ellipse::new([1.0-shade, 1.0, shade, 1.0])
             .draw(graphics::ellipse::circle(0.0, 0.0, 2.0), draw_state, transform.trans(p[0], p[1]), g);
-        n += 1;
     }
 }
 
@@ -159,7 +157,8 @@ pub fn render_parallelogram(
         prev = next;
     }
 
-    let is_behind = intersects_parallelogram(&camera.position, &(-camera.forward), vertices);
+    let backward = camera.orientation.rotate(&R3{x: -1.0, y: 0.0, z: 0.0});
+    let is_behind = intersects_parallelogram(&camera.position, &backward, vertices);
 
     draw_poly(color, points, is_behind, &c.draw_state, center, gl);
 }
@@ -167,7 +166,10 @@ pub fn render_parallelogram(
 pub fn to_screen_space(point: &R3, camera: &Camera) -> [f64; 2] {
     let to_point = *point - camera.position;
 
-    let alpha = dot(&to_point.normalized(), &camera.forward).acos();
+    let forward = camera.orientation.rotate(&R3{x: 1.0, y: 0.0, z: 0.0});
+    let right = camera.orientation.rotate(&R3{x: 0.0, y: 1.0, z: 0.0});
+
+    let alpha = dot(&to_point.normalized(), &forward).acos();
 
     // Don't vom when at the poles
     if alpha == 0.0 {
@@ -175,9 +177,9 @@ pub fn to_screen_space(point: &R3, camera: &Camera) -> [f64; 2] {
     } else if alpha == std::f64::consts::PI {
         [camera.scale * alpha, 0.0]
     } else {
-        let beta = alpha / (to_point - camera.forward*dot(&to_point, &camera.forward)).norm();
-        let x = beta * dot(&to_point, &camera.right);
-        let y = beta * dot(&to_point, &cross(&camera.forward, &camera.right));
+        let beta = alpha / (to_point - forward*dot(&to_point, &forward)).norm();
+        let x = beta * dot(&to_point, &right);
+        let y = beta * dot(&to_point, &cross(&forward, &right));
         [camera.scale * x, camera.scale * y]
     }
 }

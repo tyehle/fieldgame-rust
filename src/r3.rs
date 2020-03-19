@@ -1,7 +1,5 @@
 use std::ops;
 
-use super::quaternion;
-
 #[derive(Copy, Clone, Debug)]
 pub struct R3 {
     pub x: f64,
@@ -75,12 +73,6 @@ impl R3 {
 
     pub fn norm(&self) -> f64 {
         dot(&self, &self).sqrt()
-    }
-
-    pub fn rotate(&self, theta: f64, axis: R3) -> R3 {
-        let q = quaternion::from_real_imaginary((theta / 2.0).cos(), &(axis * (theta / 2.0).sin()));
-        let p = quaternion::from_real_imaginary(0.0, self);
-        (q * p * q.inverse()).imaginary_component()
     }
 }
 

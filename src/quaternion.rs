@@ -20,6 +20,10 @@ pub fn from_real_imaginary(real: f64, imaginary: &R3) -> Quaternion {
     }
 }
 
+pub fn rotation(axis: R3, angle: f64) -> Quaternion {
+    from_real_imaginary((angle / 2.0).cos(), &(axis * (angle / 2.0).sin()))
+}
+
 /// Multiplication is done in the same way as imaginary numbers, and then
 /// reduced to a quaternion using Hamilton's rules.
 impl ops::Mul<Quaternion> for Quaternion {
@@ -83,5 +87,9 @@ impl Quaternion {
             y: self.j,
             z: self.k,
         }
+    }
+
+    pub fn rotate(&self, vec: &R3) -> R3 {
+        (*self * from_real_imaginary(0.0, vec) * self.inverse()).imaginary_component()
     }
 }
