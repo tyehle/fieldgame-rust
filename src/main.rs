@@ -10,14 +10,10 @@ use piston::input::*;
 use piston::window::{WindowSettings, OpenGLWindow};
 use std::time::SystemTime;
 
-mod cuboid;
-use cuboid::*;
-mod face;
 mod mesh;
 mod r3;
 use r3::*;
 mod render;
-use render::Renderable;
 use r3::quaternion::*;
 
 pub struct App {
@@ -81,16 +77,8 @@ impl App {
         const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
         // const RED:   [f32; 4] = [1.0, 0.0, 0.0, 1.0];
         const BLUE:  [f32; 4] = [0.0, 0.5, 1.0, 1.0];
-        const OUT:   [f32; 4] = [0.5, 0.0, 0.5, 1.0];
-        const IN:    [f32; 4] = [0.0, 0.25, 0.5, 1.0];
-
-
-        let cube = Cuboid {
-            position: R3 {x: 0.0, y: 0.0, z: 0.0},
-            velocity: R3 {x: 0.0, y: 0.0, z: 0.0},
-            size: R3 {x: 100.0, y: 100.0, z: 100.0},
-            color: if self.in_cube {IN} else {OUT},
-         };
+        // const OUT:   [f32; 4] = [0.5, 0.0, 0.5, 1.0];
+        // const IN:    [f32; 4] = [0.0, 0.25, 0.5, 1.0];
 
 
         // let square = rectangle::square(0.0, 0.0, 50.0);
