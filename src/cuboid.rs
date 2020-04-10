@@ -2,6 +2,7 @@ use graphics;
 
 use super::r3::*;
 use super::render::*;
+use super::face;
 
 pub struct Cuboid {
     pub position: R3,
@@ -44,7 +45,23 @@ impl Renderable for Cuboid {
         let mut face_color = self.color;
         face_color[3] *= 0.25;
 
-        render_parallelogram(face_color, [self.position, pz, pxz, px], c, g, camera, center);
+        let pose = pose::Pose {
+            pos: self.position,
+            orientation: quaternion::Quaternion { r: 1.0, i: 0.0, j: 0.0, k: 0.0 },
+        };
+        face::render_face(
+            &face::Face {
+                shape: face::FaceShape::Parallelogram([
+                    R3 { x: 0.0, y: 0.0, z: 0.0 },
+                    R3 { x: 0.0, y: 0.0, z: self.size.z },
+                    R3 { x: self.size.x, y: 0.0, z: self.size.z },
+                    R3 { x: self.size.x, y: 0.0, z: 0.0 },
+                ]),
+                color: face_color,
+            },
+            &pose, c, g, camera, center);
+
+        // render_parallelogram(face_color, [self.position, pz, pxz, px], c, g, camera, center);
         render_parallelogram(face_color, [self.position, pz, pyz, py], c, g, camera, center);
         render_parallelogram(face_color, [self.position, px, pxy, py], c, g, camera, center);
         render_parallelogram(face_color, [pxyz, pxy, py, pyz], c, g, camera, center);

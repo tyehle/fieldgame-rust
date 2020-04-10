@@ -17,7 +17,7 @@ pub trait Renderable {
     fn render(&self, c: &graphics::Context, g: &mut opengl_graphics::GlGraphics, camera: Camera, center: graphics::math::Matrix2d);
 }
 
-fn approximate_curve(a: &R3, b: &R3, camera: Camera, resolution: f64, max_split: i32) -> Vec<[f64; 2]> {
+pub fn approximate_curve(a: &R3, b: &R3, camera: Camera, resolution: f64, max_split: i32) -> Vec<[f64; 2]> {
     let mut done = Vec::new();
     let mut todo = Vec::new();
 
@@ -53,23 +53,40 @@ fn approximate_curve(a: &R3, b: &R3, camera: Camera, resolution: f64, max_split:
     done.iter().map(|&x| x.1).collect()
 }
 
-pub fn render_line(color: graphics::types::Color, a: &R3, b: &R3, c: &graphics::Context, g: &mut opengl_graphics::GlGraphics, camera: Camera, center: graphics::math::Matrix2d) {
-    let mut points = approximate_curve(a, b, camera, 40.0, 9);
-    let mut prev = points.pop().expect("???");
-    while let Some(next) = points.pop() {
-        graphics::Line::new(color, 1.0)
-            .draw([prev[0], prev[1], next[0], next[1]], &c.draw_state, center, g);
-        // debug dots
-        // if !points.is_empty() {
-        //     graphics::Ellipse::new([1.0, 1.0, 1.0, 0.5])
-        //         .draw(graphics::ellipse::circle(0.0, 0.0, 2.0), &c.draw_state, center.trans(next[0], next[1]), g);
-        // }
-        prev = next;
+pub fn render_curve(
+    color: graphics::types::Color,
+    points: &[[f64; 2]],
+    c: &graphics::Context,
+    g: &mut opengl_graphics::GlGraphics,
+    center: graphics::math::Matrix2d
+) {
+    match points.get(0) {
+        None => return,
+
+        Some(start) => {
+            let line = graphics::Line::new(color, 1.0);
+            let mut prev = start;
+            for i in 1..points.len() {
+                let next = &points[i];
+                line.draw([prev[0], prev[1], next[0], next[1]], &c.draw_state, center, g);
+                // debug dots
+                if i != points.len() - 1 {
+                    graphics::Ellipse::new([1.0, 1.0, 1.0, 0.5])
+                        .draw(graphics::ellipse::circle(0.0, 0.0, 2.0), &c.draw_state, center.trans(next[0], next[1]), g);
+                }
+                prev = next;
+            }
+        }
     }
 }
 
-fn intersects_parallelogram(origin: &R3, direction: &R3, face: [R3; 4]) -> bool {
-    let [a, b, _, c] = face;
+pub fn render_line(color: graphics::types::Color, a: &R3, b: &R3, c: &graphics::Context, g: &mut opengl_graphics::GlGraphics, camera: Camera, center: graphics::math::Matrix2d) {
+    let points = approximate_curve(a, b, camera, 40.0, 9);
+    render_curve(color, &points, c, g, center);
+}
+
+pub fn intersects_parallelogram(origin: &R3, direction: &R3, face: &[R3; 4]) -> bool {
+    let [a, b, _, c] = *face;
 
     let normal = cross(&(a-b), &(a-c));
     let ao = a - *origin;
@@ -95,13 +112,14 @@ fn flush_graphics(transform: graphics::math::Matrix2d, g: &mut opengl_graphics::
 }
 
 
-fn draw_poly(color: [f32; 4],
-             poly: Vec<[f64; 2]>,
-             is_behind: bool,
-             draw_state: &graphics::DrawState,
-             transform: graphics::math::Matrix2d,
-             g: &mut opengl_graphics::GlGraphics
-             ) {
+pub fn draw_poly(
+    color: graphics::types::Color,
+    poly: &[[f64; 2]],
+    is_behind: bool,
+    draw_state: &graphics::DrawState,
+    transform: graphics::math::Matrix2d,
+    g: &mut opengl_graphics::GlGraphics
+) {
     // flush any old graphics before manually messing with the draw state
     flush_graphics(transform, g);
 
@@ -132,11 +150,11 @@ fn draw_poly(color: [f32; 4],
     flush_graphics(transform, g);
 
     // debug points
-    for (n, p) in poly.iter().enumerate() {
-        let shade = n as f32 / poly.len() as f32;
-        graphics::Ellipse::new([1.0-shade, 1.0, shade, 1.0])
-            .draw(graphics::ellipse::circle(0.0, 0.0, 2.0), draw_state, transform.trans(p[0], p[1]), g);
-    }
+    // for (n, p) in poly.iter().enumerate() {
+    //     let shade = n as f32 / poly.len() as f32;
+    //     graphics::Ellipse::new([1.0-shade, 1.0, shade, 1.0])
+    //         .draw(graphics::ellipse::circle(0.0, 0.0, 2.0), draw_state, transform.trans(p[0], p[1]), g);
+    // }
 }
 
 pub fn render_parallelogram(
@@ -158,9 +176,9 @@ pub fn render_parallelogram(
     }
 
     let backward = camera.orientation.rotate(&R3{x: -1.0, y: 0.0, z: 0.0});
-    let is_behind = intersects_parallelogram(&camera.position, &backward, vertices);
+    let is_behind = intersects_parallelogram(&camera.position, &backward, &vertices);
 
-    draw_poly(color, points, is_behind, &c.draw_state, center, gl);
+    draw_poly(color, &points, is_behind, &c.draw_state, center, gl);
 }
 
 pub fn to_screen_space(point: &R3, camera: &Camera) -> [f64; 2] {

@@ -62,6 +62,10 @@ impl ops::Mul<f64> for R3 {
 }
 
 impl R3 {
+    pub fn new(x: f64, y: f64, z: f64) -> R3 {
+        R3 { x, y, z }
+    }
+
     pub fn normalized(&self) -> R3 {
         let norm = self.norm();
         R3 {

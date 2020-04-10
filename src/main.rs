@@ -12,12 +12,13 @@ use std::time::SystemTime;
 
 mod cuboid;
 use cuboid::*;
+mod face;
+mod mesh;
 mod r3;
 use r3::*;
 mod render;
 use render::Renderable;
-mod quaternion;
-use quaternion::*;
+use r3::quaternion::*;
 
 pub struct App {
     gl: GlGraphics,  // OpenGL drawing backend
@@ -36,6 +37,9 @@ pub struct App {
     acceleration: f64,
     velocity: f64,
     camera: render::Camera,
+
+    // game objects
+    mesh: mesh::Mesh,
 
     // Game state
     in_cube: bool,
@@ -60,6 +64,8 @@ fn initial_app(gl: GlGraphics, control_magnitude: f64, acceleration: f64, veloci
         acceleration,
         velocity,
         camera,
+
+        mesh: mesh::cuboid(R3::new(100.0, 100.0, 100.0), [0.5, 0.0, 0.5, 1.0]),
 
         in_cube: false,
         score: 0,
@@ -93,12 +99,17 @@ impl App {
                       args.window_size[1] / 2.0);
         let camera = self.camera;
         let draw_hud = self.draw_hud;
+        let mesh = &self.mesh;
 
         self.gl.draw(args.viewport(), |c, gl| {
             // Clear the screen.
             clear(BLACK, gl);
 
-            cube.render(&c, gl, camera, c.transform.trans(x, y));
+            // cube.render(&c, gl, camera, c.transform.trans(x, y));
+
+            let zero = R3::new(0.0, 0.0, 0.0);
+            let orientation = quaternion::rotation(R3::new(1.0, 1.0, 1.0), std::f64::consts::PI * 0.25);
+            mesh::render_mesh(mesh, &pose::Pose{pos: zero, orientation}, &c, gl, camera, c.transform.trans(x, y));
 
             if draw_hud {
                 // render some HUD stuff
