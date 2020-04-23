@@ -1,13 +1,8 @@
-// extern crate piston;
-// extern crate graphics;
-// extern crate glutin_window;
-// extern crate opengl_graphics;
-
 use glutin_window::GlutinWindow as Window;
-use opengl_graphics::{ GlGraphics, OpenGL };
+use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::*;
 use piston::input::*;
-use piston::window::{WindowSettings, OpenGLWindow};
+use piston::window::{OpenGLWindow, WindowSettings};
 use std::time::SystemTime;
 
 mod mesh;
@@ -17,14 +12,14 @@ mod render;
 use r3::quaternion::*;
 
 pub struct App {
-    gl: GlGraphics,  // OpenGL drawing backend
+    gl: GlGraphics, // OpenGL drawing backend
 
     // input
-    control_magnitude: f64,     // size of roll control input
-    left: bool,      // input state
-    right: bool,     // input state
-    up: bool,        // input state
-    down: bool,      // input state
+    control_magnitude: f64, // size of roll control input
+    left: bool,             // input state
+    right: bool,            // input state
+    up: bool,               // input state
+    down: bool,             // input state
     forward: bool,
     back: bool,
     draw_hud: bool,
@@ -44,7 +39,15 @@ pub struct App {
     timeout_sec: u32,
 }
 
-fn initial_app(gl: GlGraphics, control_magnitude: f64, acceleration: f64, velocity: f64, camera: render::Camera, last_score: SystemTime, timeout_sec: u32) -> App {
+fn initial_app(
+    gl: GlGraphics,
+    control_magnitude: f64,
+    acceleration: f64,
+    velocity: f64,
+    camera: render::Camera,
+    last_score: SystemTime,
+    timeout_sec: u32,
+) -> App {
     App {
         gl,
 
@@ -76,15 +79,13 @@ impl App {
 
         const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
         // const RED:   [f32; 4] = [1.0, 0.0, 0.0, 1.0];
-        const BLUE:  [f32; 4] = [0.0, 0.5, 1.0, 1.0];
+        const BLUE: [f32; 4] = [0.0, 0.5, 1.0, 1.0];
         // const OUT:   [f32; 4] = [0.5, 0.0, 0.5, 1.0];
         // const IN:    [f32; 4] = [0.0, 0.25, 0.5, 1.0];
 
-
         // let square = rectangle::square(0.0, 0.0, 50.0);
         // let rotation = self.roll_x;
-        let (x, y) = (args.window_size[0] / 2.0,
-                      args.window_size[1] / 2.0);
+        let (x, y) = (args.window_size[0] / 2.0, args.window_size[1] / 2.0);
         let camera = self.camera;
         let draw_hud = self.draw_hud;
         let mesh = &self.mesh;
@@ -96,16 +97,47 @@ impl App {
             // cube.render(&c, gl, camera, c.transform.trans(x, y));
 
             let zero = R3::new(0.0, 0.0, 0.0);
-            let orientation = quaternion::rotation(R3::new(1.0, 1.0, 1.0), std::f64::consts::PI * 0.25);
-            mesh::render_mesh(mesh, &pose::Pose{pos: zero, orientation}, &c, gl, camera, c.transform.trans(x, y));
+            let orientation =
+                quaternion::rotation(R3::new(1.0, 1.0, 1.0), std::f64::consts::PI * 0.25);
+            mesh::render_mesh(
+                mesh,
+                &pose::Pose {
+                    pos: zero,
+                    orientation,
+                },
+                &c,
+                gl,
+                camera,
+                c.transform.trans(x, y),
+            );
 
             if draw_hud {
                 // render some HUD stuff
                 // TODO: Figure out how big the screen actually is
-                Line::new(BLUE, 1.0).draw([0.0, -5.0, 0.0, 5.0], &c.draw_state, c.transform.trans(x, y), gl);
-                Line::new(BLUE, 1.0).draw([-5.0, 0.0, 5.0, 0.0], &c.draw_state, c.transform.trans(x, y), gl);
-                Ellipse::new_border(BLUE, 0.5).draw(rectangle::square(-270.0, -270.0, 540.0), &c.draw_state, c.transform.trans(x, y), gl);
-                Ellipse::new_border(BLUE, 1.0).draw(rectangle::square(-540.0, -540.0, 1080.0), &c.draw_state, c.transform.trans(x, y), gl);
+                Line::new(BLUE, 1.0).draw(
+                    [0.0, -5.0, 0.0, 5.0],
+                    &c.draw_state,
+                    c.transform.trans(x, y),
+                    gl,
+                );
+                Line::new(BLUE, 1.0).draw(
+                    [-5.0, 0.0, 5.0, 0.0],
+                    &c.draw_state,
+                    c.transform.trans(x, y),
+                    gl,
+                );
+                Ellipse::new_border(BLUE, 0.5).draw(
+                    rectangle::square(-270.0, -270.0, 540.0),
+                    &c.draw_state,
+                    c.transform.trans(x, y),
+                    gl,
+                );
+                Ellipse::new_border(BLUE, 1.0).draw(
+                    rectangle::square(-540.0, -540.0, 1080.0),
+                    &c.draw_state,
+                    c.transform.trans(x, y),
+                    gl,
+                );
             }
 
             // let transform = c.transform.trans(x, y)
@@ -128,7 +160,11 @@ impl App {
                 0.0
             }
         };
-        const RIGHT: R3 = R3 { x: 0.0, y: 1.0, z: 0.0 };
+        const RIGHT: R3 = R3 {
+            x: 0.0,
+            y: 1.0,
+            z: 0.0,
+        };
         let o1 = self.camera.orientation * rotation(RIGHT, pitch_rate * args.dt);
 
         // roll
@@ -142,7 +178,11 @@ impl App {
             }
         };
         // rotate around the new forward vector to keep them orthogonal
-        const FORWARD: R3 = R3 { x: 1.0, y: 0.0, z: 0.0 };
+        const FORWARD: R3 = R3 {
+            x: 1.0,
+            y: 0.0,
+            z: 0.0,
+        };
         let orientation = o1 * rotation(FORWARD, roll_rate * args.dt);
 
         // speed
@@ -160,13 +200,25 @@ impl App {
         let forward = orientation.rotate(&FORWARD);
 
         self.camera = render::Camera {
-            position: self.camera.position + forward*self.velocity*args.dt,
+            position: self.camera.position + forward * self.velocity * args.dt,
             orientation,
-            scale: self.camera.scale
+            scale: self.camera.scale,
         };
 
         let was_inside = self.in_cube;
-        self.in_cube = inside(&R3{x: 0.0, y: 0.0, z: 0.0}, &R3{x: 100.0, y: 100.0, z: 100.0}, &self.camera.position);
+        self.in_cube = inside(
+            &R3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            &R3 {
+                x: 100.0,
+                y: 100.0,
+                z: 100.0,
+            },
+            &self.camera.position,
+        );
         if was_inside && !self.in_cube {
             self.velocity += self.acceleration * 4.0;
             // self.camera.position = self.camera.position + R3{x: 200.0, y: 0.0, z: 0.0};
@@ -176,7 +228,7 @@ impl App {
     fn button(&mut self, args: ButtonArgs) {
         let pressed = match args.state {
             ButtonState::Press => true,
-            ButtonState::Release => false
+            ButtonState::Release => false,
         };
 
         match args.button {
@@ -186,8 +238,16 @@ impl App {
             Button::Keyboard(Key::S) => self.back = pressed,
             Button::Keyboard(Key::Space) => self.up = pressed,
             Button::Keyboard(Key::C) => self.down = pressed,
-            Button::Keyboard(Key::H) => if pressed { self.draw_hud = !self.draw_hud; }
-            Button::Keyboard(Key::X) => if pressed { self.velocity = 0.0; }
+            Button::Keyboard(Key::H) => {
+                if pressed {
+                    self.draw_hud = !self.draw_hud;
+                }
+            }
+            Button::Keyboard(Key::X) => {
+                if pressed {
+                    self.velocity = 0.0;
+                }
+            }
             // Button::Keyboard(Key::LShift) => {},
             _ => {}
         }
@@ -195,9 +255,12 @@ impl App {
 }
 
 fn inside(corner: &R3, size: &R3, pos: &R3) -> bool {
-    pos.x > corner.x && pos.x < corner.x+size.x
-        && pos.y > corner.y && pos.y < corner.y+size.y
-        && pos.z > corner.z && pos.z < corner.z+size.z
+    pos.x > corner.x
+        && pos.x < corner.x + size.x
+        && pos.y > corner.y
+        && pos.y < corner.y + size.y
+        && pos.z > corner.z
+        && pos.z < corner.z + size.z
 }
 
 fn main() {
@@ -205,10 +268,7 @@ fn main() {
     let opengl = OpenGL::V3_2;
 
     // Create a Glutin window.
-    let mut window: Window = WindowSettings::new(
-            "spinning-square",
-            [800, 600]
-        )
+    let mut window: Window = WindowSettings::new("spinning-square", [800, 600])
         .graphics_api(opengl)
         .exit_on_esc(true)
         .fullscreen(true)
@@ -220,12 +280,29 @@ fn main() {
     gl::load_with(|s| window.get_proc_address(s) as *const _);
 
     let camera = render::Camera {
-        position: R3 { x: 50.0, y: 50.0, z: 50.0 },
-        orientation: Quaternion { r: 1.0, i: 0.0, j: 0.0, k: 0.0 },
-        scale: 1080.0 / std::f64::consts::PI / 2.0
+        position: R3 {
+            x: 50.0,
+            y: 50.0,
+            z: 50.0,
+        },
+        orientation: Quaternion {
+            r: 1.0,
+            i: 0.0,
+            j: 0.0,
+            k: 0.0,
+        },
+        scale: 1080.0 / std::f64::consts::PI / 2.0,
     };
 
-    let mut app = initial_app(GlGraphics::new(opengl), 1.0, 40.0, 20.0, camera, SystemTime::now(), 10);
+    let mut app = initial_app(
+        GlGraphics::new(opengl),
+        1.0,
+        40.0,
+        20.0,
+        camera,
+        SystemTime::now(),
+        10,
+    );
 
     let mut events = Events::new(EventSettings::new());
     while let Some(e) = events.next(&mut window) {

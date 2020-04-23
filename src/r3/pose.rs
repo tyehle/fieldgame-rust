@@ -1,6 +1,5 @@
-
-use super::r3::R3;
 use super::quaternion::Quaternion;
+use super::r3::R3;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Pose {
