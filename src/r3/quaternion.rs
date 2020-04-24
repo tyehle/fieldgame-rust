@@ -10,20 +10,6 @@ pub struct Quaternion {
     pub k: f64,
 }
 
-/// Build a quaternion from a real and imaginary parts.
-pub fn from_real_imaginary(real: f64, imaginary: &R3) -> Quaternion {
-    Quaternion {
-        r: real,
-        i: imaginary.x,
-        j: imaginary.y,
-        k: imaginary.z,
-    }
-}
-
-pub fn rotation(axis: R3, angle: f64) -> Quaternion {
-    from_real_imaginary((angle / 2.0).cos(), &(axis * (angle / 2.0).sin()))
-}
-
 /// Multiplication is done in the same way as imaginary numbers, and then
 /// reduced to a quaternion using Hamilton's rules.
 impl ops::Mul<Quaternion> for Quaternion {
@@ -35,20 +21,6 @@ impl ops::Mul<Quaternion> for Quaternion {
             i: self.r * other.i + self.i * other.r + self.j * other.k - self.k * other.j,
             j: self.r * other.j - self.i * other.k + self.j * other.r + self.k * other.i,
             k: self.r * other.k + self.i * other.j - self.j * other.i + self.k * other.r,
-        }
-    }
-}
-
-/// Scalar multiplication for quaternions
-impl ops::Mul<f64> for Quaternion {
-    type Output = Quaternion;
-
-    fn mul(self, other: f64) -> Self::Output {
-        Quaternion {
-            r: self.r * other,
-            i: self.i * other,
-            j: self.j * other,
-            k: self.k * other,
         }
     }
 }
@@ -67,6 +39,28 @@ impl ops::Div<f64> for Quaternion {
 }
 
 impl Quaternion {
+    pub fn new(r: f64, i: f64, j: f64, k: f64) -> Quaternion {
+        Quaternion { r, i, j, k }
+    }
+
+    pub fn zero_rotation() -> Quaternion {
+        Quaternion::new(1.0, 0.0, 0.0, 0.0)
+    }
+
+    /// Build a quaternion from a real and imaginary parts.
+    pub fn from_real_imaginary(real: f64, imaginary: &R3) -> Quaternion {
+        Quaternion {
+            r: real,
+            i: imaginary.x,
+            j: imaginary.y,
+            k: imaginary.z,
+        }
+    }
+
+    pub fn rotation(axis: R3, angle: f64) -> Quaternion {
+        Quaternion::from_real_imaginary((angle / 2.0).cos(), &(axis * (angle / 2.0).sin()))
+    }
+
     pub fn conjugate(&self) -> Quaternion {
         Quaternion {
             r: self.r,
@@ -90,6 +84,6 @@ impl Quaternion {
     }
 
     pub fn rotate(&self, vec: &R3) -> R3 {
-        (*self * from_real_imaginary(0.0, vec) * self.inverse()).imaginary_component()
+        (*self * Quaternion::from_real_imaginary(0.0, vec) * self.inverse()).imaginary_component()
     }
 }

@@ -11,6 +11,30 @@ use r3::*;
 mod render;
 use r3::quaternion::*;
 
+pub struct GameObject {
+    mesh: mesh::Mesh,
+    pose: pose::Pose,
+
+    velocity: R3,
+    acceleration: R3,
+
+    angular_velocity: R3,
+    angular_acceleration: R3,
+}
+
+impl GameObject {
+    fn physics_step(&mut self, dt: f64) {
+        self.velocity += self.acceleration * dt;
+        self.pose.pos += self.velocity * dt;
+
+        self.angular_velocity += self.angular_acceleration * dt;
+        // q_next = q * (1/2 * dt * angular_velocity + 1)
+        // see https://gamedev.stackexchange.com/a/157018
+        self.pose.orientation = self.pose.orientation
+            * Quaternion::from_real_imaginary(1.0, &(self.angular_velocity * 0.5 * dt));
+    }
+}
+
 pub struct App {
     gl: GlGraphics, // OpenGL drawing backend
 
@@ -30,13 +54,12 @@ pub struct App {
     camera: render::Camera,
 
     // game objects
-    mesh: mesh::Mesh,
-
-    // Game state
-    in_cube: bool,
-    score: i32,
-    last_score: SystemTime,
-    timeout_sec: u32,
+    objects: Vec<GameObject>,
+    // // Game state
+    // in_cube: bool,
+    // score: i32,
+    // last_score: SystemTime,
+    // timeout_sec: u32,
 }
 
 fn initial_app(
@@ -45,8 +68,8 @@ fn initial_app(
     acceleration: f64,
     velocity: f64,
     camera: render::Camera,
-    last_score: SystemTime,
-    timeout_sec: u32,
+    // last_score: SystemTime,
+    // timeout_sec: u32,
 ) -> App {
     App {
         gl,
@@ -64,12 +87,23 @@ fn initial_app(
         velocity,
         camera,
 
-        mesh: mesh::cuboid(R3::new(100.0, 100.0, 100.0), [0.5, 0.0, 0.5, 1.0]),
+        objects: vec![GameObject {
+            mesh: mesh::cuboid(R3::new(100.0, 100.0, 100.0), [0.5, 0.0, 0.5, 1.0]),
+            pose: pose::Pose {
+                orientation: Quaternion::zero_rotation(),
+                pos: R3::zero(),
+            },
 
-        in_cube: false,
-        score: 0,
-        last_score,
-        timeout_sec,
+            acceleration: R3::zero(),
+            velocity: R3::zero(),
+
+            angular_acceleration: R3::zero(),
+            angular_velocity: R3::new(1.0, 1.0, 1.0) * 1.0,
+        }],
+        // in_cube: false,
+        // score: 0,
+        // last_score,
+        // timeout_sec,
     }
 }
 
@@ -83,33 +117,25 @@ impl App {
         // const OUT:   [f32; 4] = [0.5, 0.0, 0.5, 1.0];
         // const IN:    [f32; 4] = [0.0, 0.25, 0.5, 1.0];
 
-        // let square = rectangle::square(0.0, 0.0, 50.0);
-        // let rotation = self.roll_x;
         let (x, y) = (args.window_size[0] / 2.0, args.window_size[1] / 2.0);
         let camera = self.camera;
         let draw_hud = self.draw_hud;
-        let mesh = &self.mesh;
+        let objects = &self.objects;
 
         self.gl.draw(args.viewport(), |c, gl| {
             // Clear the screen.
             clear(BLACK, gl);
 
-            // cube.render(&c, gl, camera, c.transform.trans(x, y));
-
-            let zero = R3::new(0.0, 0.0, 0.0);
-            let orientation =
-                quaternion::rotation(R3::new(1.0, 1.0, 1.0), std::f64::consts::PI * 0.25);
-            mesh::render_mesh(
-                mesh,
-                &pose::Pose {
-                    pos: zero,
-                    orientation,
-                },
-                &c,
-                gl,
-                camera,
-                c.transform.trans(x, y),
-            );
+            for obj in objects {
+                mesh::render_mesh(
+                    &obj.mesh,
+                    &obj.pose,
+                    &c,
+                    gl,
+                    camera,
+                    c.transform.trans(x, y),
+                );
+            }
 
             if draw_hud {
                 // render some HUD stuff
@@ -139,13 +165,6 @@ impl App {
                     gl,
                 );
             }
-
-            // let transform = c.transform.trans(x, y)
-            //                            .rot_rad(rotation)
-            //                            .trans(-25.0, -25.0);
-
-            // Draw a box rotating around the middle of the screen.
-            // rectangle(RED, square, transform, gl);
         });
     }
 
@@ -165,7 +184,7 @@ impl App {
             y: 1.0,
             z: 0.0,
         };
-        let o1 = self.camera.orientation * rotation(RIGHT, pitch_rate * args.dt);
+        let o1 = self.camera.orientation * Quaternion::rotation(RIGHT, pitch_rate * args.dt);
 
         // roll
         let roll_rate = {
@@ -183,7 +202,7 @@ impl App {
             y: 0.0,
             z: 0.0,
         };
-        let orientation = o1 * rotation(FORWARD, roll_rate * args.dt);
+        let orientation = o1 * Quaternion::rotation(FORWARD, roll_rate * args.dt);
 
         // speed
         let a = {
@@ -205,24 +224,28 @@ impl App {
             scale: self.camera.scale,
         };
 
-        let was_inside = self.in_cube;
-        self.in_cube = inside(
-            &R3 {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-            &R3 {
-                x: 100.0,
-                y: 100.0,
-                z: 100.0,
-            },
-            &self.camera.position,
-        );
-        if was_inside && !self.in_cube {
-            self.velocity += self.acceleration * 4.0;
-            // self.camera.position = self.camera.position + R3{x: 200.0, y: 0.0, z: 0.0};
+        for obj in self.objects.iter_mut() {
+            obj.physics_step(args.dt);
         }
+
+        // let was_inside = self.in_cube;
+        // self.in_cube = inside(
+        //     &R3 {
+        //         x: 0.0,
+        //         y: 0.0,
+        //         z: 0.0,
+        //     },
+        //     &R3 {
+        //         x: 100.0,
+        //         y: 100.0,
+        //         z: 100.0,
+        //     },
+        //     &self.camera.position,
+        // );
+        // if was_inside && !self.in_cube {
+        //     self.velocity += self.acceleration * 4.0;
+        //     // self.camera.position = self.camera.position + R3{x: 200.0, y: 0.0, z: 0.0};
+        // }
     }
 
     fn button(&mut self, args: ButtonArgs) {
@@ -254,14 +277,14 @@ impl App {
     }
 }
 
-fn inside(corner: &R3, size: &R3, pos: &R3) -> bool {
-    pos.x > corner.x
-        && pos.x < corner.x + size.x
-        && pos.y > corner.y
-        && pos.y < corner.y + size.y
-        && pos.z > corner.z
-        && pos.z < corner.z + size.z
-}
+// fn inside(corner: &R3, size: &R3, pos: &R3) -> bool {
+//     pos.x > corner.x
+//         && pos.x < corner.x + size.x
+//         && pos.y > corner.y
+//         && pos.y < corner.y + size.y
+//         && pos.z > corner.z
+//         && pos.z < corner.z + size.z
+// }
 
 fn main() {
     // Change this to OpenGL::V2_1 if not working.
@@ -281,9 +304,9 @@ fn main() {
 
     let camera = render::Camera {
         position: R3 {
-            x: 50.0,
-            y: 50.0,
-            z: 50.0,
+            x: -150.0,
+            y: 0.0,
+            z: 0.0,
         },
         orientation: Quaternion {
             r: 1.0,
@@ -298,10 +321,10 @@ fn main() {
         GlGraphics::new(opengl),
         1.0,
         40.0,
-        20.0,
+        0.0,
         camera,
-        SystemTime::now(),
-        10,
+        // SystemTime::now(),
+        // 10,
     );
 
     let mut events = Events::new(EventSettings::new());

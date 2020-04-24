@@ -37,6 +37,14 @@ impl ops::Add for R3 {
     }
 }
 
+impl ops::AddAssign for R3 {
+    fn add_assign(&mut self, rhs: R3) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+        self.z += rhs.z;
+    }
+}
+
 impl ops::Sub for R3 {
     type Output = Self;
 
@@ -64,6 +72,14 @@ impl ops::Mul<f64> for R3 {
 impl R3 {
     pub fn new(x: f64, y: f64, z: f64) -> R3 {
         R3 { x, y, z }
+    }
+
+    pub fn zero() -> R3 {
+        R3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
     }
 
     pub fn normalized(&self) -> R3 {
