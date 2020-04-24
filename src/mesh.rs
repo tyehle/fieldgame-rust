@@ -2,7 +2,7 @@ use graphics;
 
 use graphics::types::Color;
 
-use super::r3::{pose::Pose, R3};
+use super::r3::{cross, dot, pose::Pose, R3};
 use super::render::*;
 
 pub struct Mesh {
@@ -67,6 +67,40 @@ pub fn cuboid(size: R3, color: Color) -> Mesh {
     }
 }
 
+pub fn intersects_parallelogram(origin: &R3, direction: &R3, face: &[R3; 4]) -> bool {
+    let [a, b, _, c] = *face;
+
+    let normal = cross(&(a - b), &(a - c));
+    let ao = a - *origin;
+    let m = cross(direction, &ao);
+
+    // divides are much more expensive than multiplies, so only do it once here
+    let invdet = 1.0 / dot(direction, &normal);
+
+    let t = dot(&ao, &normal) * invdet;
+    let u = dot(&(a - c), &m) * invdet;
+    let v = -dot(&(a - b), &m) * invdet;
+
+    t >= 0.0 && u >= 0.0 && v >= 0.0 && u <= 1.0 && v <= 1.0
+}
+
+pub fn intersects_triangle(origin: &R3, direction: &R3, face: &[R3; 3]) -> bool {
+    let [a, b, c] = *face;
+
+    let normal = cross(&(a - b), &(a - c));
+    let ao = a - *origin;
+    let m = cross(direction, &ao);
+
+    // divides are much more expensive than multiplies, so only do it once here
+    let invdet = 1.0 / dot(direction, &normal);
+
+    let t = dot(&ao, &normal) * invdet;
+    let u = dot(&(a - c), &m) * invdet;
+    let v = -dot(&(a - b), &m) * invdet;
+
+    t >= 0.0 && u >= 0.0 && v >= 0.0 && u + v <= 1.0
+}
+
 pub fn render_mesh(
     mesh: &Mesh,
     pose: &Pose,
@@ -102,22 +136,44 @@ pub fn render_mesh(
         render_curve(*color, &curves[*ci], context, g, center);
     }
 
-    for (_edge_indices, _color) in &mesh.triangles {
-        unimplemented!();
+    let backward = camera.orientation.rotate(&R3 {
+        x: -1.0,
+        y: 0.0,
+        z: 0.0,
+    });
+
+    fn map3<A, B>(xs: [A; 3], f: impl Fn(A) -> B) -> [B; 3] {
+        let [a, b, c] = xs;
+        [f(a), f(b), f(c)]
+    }
+    for &(edge_indices, color) in &mesh.triangles {
+        let vs = map3(edge_indices, |(ei, rev)| {
+            transformed_vertices[if rev {
+                mesh.edges[ei].1
+            } else {
+                mesh.edges[ei].0
+            }]
+        });
+        let is_behind = intersects_triangle(&camera.position, &backward, &vs);
+
+        let mut points = Vec::new();
+        for &(ci, rev) in &edge_indices {
+            if rev {
+                points.extend(curves[ci].iter().rev());
+            } else {
+                points.extend(&curves[ci]);
+            }
+        }
+
+        draw_poly(color, &points, is_behind, &context.draw_state, center, g);
     }
 
     fn map4<A, B>(xs: [A; 4], f: impl Fn(A) -> B) -> [B; 4] {
         let [a, b, c, d] = xs;
         [f(a), f(b), f(c), f(d)]
     }
-
-    let backward = camera.orientation.rotate(&R3 {
-        x: -1.0,
-        y: 0.0,
-        z: 0.0,
-    });
-    for (edge_indices, color) in &mesh.parallelograms {
-        let vs = map4(*edge_indices, |(ei, rev)| {
+    for &(edge_indices, color) in &mesh.parallelograms {
+        let vs = map4(edge_indices, |(ei, rev)| {
             transformed_vertices[if rev {
                 mesh.edges[ei].1
             } else {
@@ -127,14 +183,14 @@ pub fn render_mesh(
         let is_behind = intersects_parallelogram(&camera.position, &backward, &vs);
 
         let mut points = Vec::new();
-        for (ci, rev) in edge_indices {
-            if *rev {
-                points.extend(curves[*ci].iter().rev());
+        for &(ci, rev) in &edge_indices {
+            if rev {
+                points.extend(curves[ci].iter().rev());
             } else {
-                points.extend(&curves[*ci]);
+                points.extend(&curves[ci]);
             }
         }
 
-        draw_poly(*color, &points, is_behind, &context.draw_state, center, g);
+        draw_poly(color, &points, is_behind, &context.draw_state, center, g);
     }
 }

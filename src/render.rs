@@ -100,36 +100,6 @@ pub fn render_curve(
     }
 }
 
-pub fn render_line(
-    color: graphics::types::Color,
-    a: &R3,
-    b: &R3,
-    c: &graphics::Context,
-    g: &mut opengl_graphics::GlGraphics,
-    camera: Camera,
-    center: graphics::math::Matrix2d,
-) {
-    let points = approximate_curve(a, b, camera, 40.0, 9);
-    render_curve(color, &points, c, g, center);
-}
-
-pub fn intersects_parallelogram(origin: &R3, direction: &R3, face: &[R3; 4]) -> bool {
-    let [a, b, _, c] = *face;
-
-    let normal = cross(&(a - b), &(a - c));
-    let ao = a - *origin;
-    let m = cross(direction, &ao);
-
-    // divides are much more expensive than multiplies, so only do it once here
-    let invdet = 1.0 / dot(direction, &normal);
-
-    let t = dot(&ao, &normal) * invdet;
-    let u = dot(&(a - c), &m) * invdet;
-    let v = -dot(&(a - b), &m) * invdet;
-
-    t >= 0.0 && u >= 0.0 && u <= 1.0 && v >= 0.0 && v <= 1.0
-}
-
 fn flush_graphics(transform: graphics::math::Matrix2d, g: &mut opengl_graphics::GlGraphics) {
     let color = [0.0, 0.0, 0.0, 1.0];
     let rect = [-540.0, -540.0, 1.0, 1.0];
@@ -142,7 +112,7 @@ pub fn draw_poly(
     color: graphics::types::Color,
     poly: &[[f64; 2]],
     is_behind: bool,
-    draw_state: &graphics::DrawState,
+    _draw_state: &graphics::DrawState,
     transform: graphics::math::Matrix2d,
     g: &mut opengl_graphics::GlGraphics,
 ) {
@@ -190,36 +160,6 @@ pub fn draw_poly(
     //     graphics::Ellipse::new([1.0-shade, 1.0, shade, 1.0])
     //         .draw(graphics::ellipse::circle(0.0, 0.0, 2.0), draw_state, transform.trans(p[0], p[1]), g);
     // }
-}
-
-pub fn render_parallelogram(
-    color: [f32; 4],
-    vertices: [R3; 4],
-    c: &graphics::Context,
-    gl: &mut opengl_graphics::GlGraphics,
-    camera: Camera,
-    center: graphics::math::Matrix2d,
-) {
-    let resolution = 40.0;
-    let max_split = 9;
-
-    let mut points = Vec::new();
-    let mut prev = vertices.last().expect("no vertices");
-    for next in vertices.iter() {
-        points.append(&mut approximate_curve(
-            prev, next, camera, resolution, max_split,
-        ));
-        prev = next;
-    }
-
-    let backward = camera.orientation.rotate(&R3 {
-        x: -1.0,
-        y: 0.0,
-        z: 0.0,
-    });
-    let is_behind = intersects_parallelogram(&camera.position, &backward, &vertices);
-
-    draw_poly(color, &points, is_behind, &c.draw_state, center, gl);
 }
 
 pub fn to_screen_space(point: &R3, camera: &Camera) -> [f64; 2] {
