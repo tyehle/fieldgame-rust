@@ -30,8 +30,7 @@ impl GameObject {
         self.angular_velocity += self.angular_acceleration * dt;
         // q_next = q * (1/2 * dt * angular_velocity + 1)
         // see https://gamedev.stackexchange.com/a/157018
-        self.pose.orientation = self.pose.orientation
-            * Quaternion::from_real_imaginary(1.0, &(self.angular_velocity * 0.5 * dt));
+        self.pose.orientation = Quaternion::from_real_imaginary(1.0, &(self.angular_velocity * 0.5 * dt)) * self.pose.orientation;
     }
 }
 
@@ -71,6 +70,24 @@ fn initial_app(
     // last_score: SystemTime,
     // timeout_sec: u32,
 ) -> App {
+    fn cube(rotation: Quaternion) -> GameObject {
+        let pose = pose::Pose {
+            pos: R3::new(100.0 * (2.0/3.0_f64).sqrt() * 1.5, 0.0, 0.0),
+            orientation: Quaternion::rotation(R3::new(1.0, -1.0, 0.0).normalized(), (1.0/3_f64.sqrt()).acos()),
+        };
+
+        GameObject {
+            mesh: mesh::cuboid(R3::new(100.0, 100.0, 100.0), [0.5, 0.0, 0.5, 1.0]),
+            pose: pose.rotate(R3::zero(), rotation),
+
+            acceleration: R3::zero(),
+            velocity: R3::zero(),
+
+            angular_acceleration: rotation.rotate(&R3::new(0.0, 0.0, -0.1)),
+            angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, 4.0))
+        }
+    }
+
     App {
         gl,
 
@@ -87,19 +104,11 @@ fn initial_app(
         velocity,
         camera,
 
-        objects: vec![GameObject {
-            mesh: mesh::cuboid(R3::new(100.0, 100.0, 100.0), [0.5, 0.0, 0.5, 1.0]),
-            pose: pose::Pose {
-                orientation: Quaternion::zero_rotation(),
-                pos: R3::zero(),
-            },
-
-            acceleration: R3::zero(),
-            velocity: R3::zero(),
-
-            angular_acceleration: R3::zero(),
-            angular_velocity: R3::new(1.0, 1.0, 1.0) * 1.0,
-        }],
+        objects: vec![
+            cube(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), (2.0/3.0) * core::f64::consts::PI)),
+            cube(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), -(2.0/3.0) * core::f64::consts::PI)),
+            cube(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), 0.0 * core::f64::consts::PI)),
+        ],
         // in_cube: false,
         // score: 0,
         // last_score,
@@ -304,7 +313,7 @@ fn main() {
 
     let camera = render::Camera {
         position: R3 {
-            x: -150.0,
+            x: 0.0,
             y: 0.0,
             z: 0.0,
         },
