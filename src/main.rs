@@ -28,7 +28,7 @@ impl GameObject {
         self.pose.pos += self.velocity * dt;
 
         self.angular_velocity += self.angular_acceleration * dt;
-        // q_next = q * (1/2 * dt * angular_velocity + 1)
+        // q_next = ( 1 + 1/2 * dt * angular_velocity ) * q
         // see https://gamedev.stackexchange.com/a/157018
         self.pose.orientation = Quaternion::from_real_imaginary(1.0, &(self.angular_velocity * 0.5 * dt)) * self.pose.orientation;
     }
@@ -83,8 +83,8 @@ fn initial_app(
             acceleration: R3::zero(),
             velocity: R3::zero(),
 
-            angular_acceleration: rotation.rotate(&R3::new(0.0, 0.0, -0.1)),
-            angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, 4.0))
+            angular_acceleration: rotation.rotate(&R3::new(0.0, 0.0, -0.0)),
+            angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, -1.0))
         }
     }
 

@@ -86,14 +86,14 @@ pub fn render_curve(
                     g,
                 );
                 // debug dots
-                if i != points.len() - 1 {
-                    graphics::Ellipse::new([1.0, 1.0, 1.0, 0.5]).draw(
-                        graphics::ellipse::circle(0.0, 0.0, 2.0),
-                        &c.draw_state,
-                        center.trans(next[0], next[1]),
-                        g,
-                    );
-                }
+                // if i != points.len() - 1 {
+                //     graphics::Ellipse::new([1.0, 1.0, 1.0, 0.5]).draw(
+                //         graphics::ellipse::circle(0.0, 0.0, 2.0),
+                //         &c.draw_state,
+                //         center.trans(next[0], next[1]),
+                //         g,
+                //     );
+                // }
                 prev = next;
             }
         }
