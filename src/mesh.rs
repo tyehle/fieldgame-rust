@@ -1,10 +1,121 @@
 use graphics;
+use std::fs;
+use std::collections::HashMap;
+use wavefront_obj::obj;
 
 use graphics::types::Color;
 
 use super::r3::{cross, dot, pose::Pose, R3};
 use super::render::*;
 
+pub fn condense_mesh(mesh: &Mesh) -> Mesh {
+    let mut mapping = Vec::new();
+    let mut vertices = Vec::new();
+
+    for &v in &mesh.vertices {
+        match vertices.iter().position(|&nv| nv == v) {
+            Some(index) => {
+                mapping.push(index);
+            },
+
+            None => {
+                mapping.push(vertices.len());
+                vertices.push(v);
+            },
+        }
+    }
+
+    Mesh {
+        vertices,
+        edges: mesh.edges.iter().map(|&(a, b)| (mapping[a], mapping[b])).collect(),
+
+        lines: mesh.lines.clone(),
+        triangles: mesh.triangles.clone(),
+        parallelograms: mesh.parallelograms.clone(),
+    }
+}
+
+pub fn mk_meshes(path: &str, color: Color) -> Result<Mesh, String> {
+    let file = fs::read_to_string(path).map_err(|_| "Could not read file")?;
+
+    let obj_set = obj::parse(file).map_err(|e| e.message)?;
+
+    let mut vertices = Vec::new();
+    let mut vertex_offset;
+
+    let mut edge_map = HashMap::new();
+    let mut edges = Vec::new();
+
+    fn get_edge(edges: &mut Vec<(usize, usize)>, edge_map: &mut HashMap<(usize, usize), usize>, a: usize, b: usize) -> usize {
+        if b < a {
+            get_edge(edges, edge_map, b, a)
+        } else {
+            // add this edge to the list if its not already there
+            match edge_map.get(&(a, b)) {
+                Some(&index) => index,
+
+                None => {
+                    let index = edges.len();
+                    edges.push((a, b));
+                    edge_map.insert((a, b), index);
+                    index
+                }
+            }
+        }
+    }
+
+    let mut lines = Vec::new();
+    let mut triangles = Vec::new();
+    let face_color = [color[0], color[1], color[2], 0.125 * color[3]];
+
+    for object in &obj_set.objects {
+        vertex_offset = vertices.len();
+        vertices.extend(object.vertices.iter().map(|v| R3::new(v.x, v.y, v.z)));
+
+        for g in &object.geometry {
+            for shape in &g.shapes {
+                match shape.primitive {
+                    obj::Primitive::Point(p) => println!("Ignoring a point! {}", p.0),
+
+                    obj::Primitive::Line((obj_a, _, _an), (obj_b, _, _bn)) => {
+                        let a = obj_a + vertex_offset;
+                        let b = obj_b + vertex_offset;
+                        lines.push((get_edge(&mut edges, &mut edge_map, a, b), color));
+                    },
+
+                    obj::Primitive::Triangle((obj_a, _, _an), (obj_b, _, _bn), (obj_c, _, _cn)) => {
+                        let a = obj_a + vertex_offset;
+                        let b = obj_b + vertex_offset;
+                        let c = obj_c + vertex_offset;
+                        // println!("T <{}, {}, {}>", a, b, c);
+                        let ab = get_edge(&mut edges, &mut edge_map, a, b);
+                        let bc = get_edge(&mut edges, &mut edge_map, b, c);
+                        let ca = get_edge(&mut edges, &mut edge_map, c, a);
+                        // lines.push((ab, color));
+                        // lines.push((bc, color));
+                        // lines.push((ca, color));
+                        triangles.push(([
+                            (ab, edges[ab].0 != a),
+                            (bc, edges[bc].0 != b),
+                            (ca, edges[ca].0 != c),
+                        ], face_color));
+                    },
+                }
+            }
+        }
+    }
+
+    Ok(Mesh {
+        vertices,
+        edges,
+        lines,
+        triangles,
+        parallelograms: Vec::new(),
+    })
+}
+
+
+#[derive(Debug)]
 pub struct Mesh {
     pub vertices: Vec<R3>,
     pub edges: Vec<(usize, usize)>,

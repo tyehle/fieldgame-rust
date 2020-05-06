@@ -88,6 +88,67 @@ fn initial_app(
         }
     }
 
+    fn diamond(rotation: Quaternion) -> GameObject {
+        let pose = pose::Pose {
+            pos: R3::new(100.0 * (2.0/3.0_f64).sqrt() * 1.5, 0.0, 0.0),
+            orientation: Quaternion::zero_rotation(),
+        };
+
+        let mesh = mesh::mk_meshes("data/diamond.obj", [0.0, 0.5, 0.5, 1.0]).unwrap();
+
+        GameObject {
+            mesh,
+            pose: pose.rotate(R3::zero(), rotation),
+
+            acceleration: R3::zero(),
+            velocity: R3::zero(),
+
+            angular_acceleration: rotation.rotate(&R3::new(0.0, 0.0, -0.0)),
+            angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, -1.0))
+        }
+    }
+
+    fn teapot(rotation: Quaternion) -> GameObject {
+        let pose = pose::Pose {
+            pos: R3::new(5.0, 0.0, 2.0),
+            orientation: Quaternion::rotation(R3::new(0.0, 0.0, -1.0), 0.5 * core::f64::consts::PI) * Quaternion::rotation(R3::new(-1.0, 0.0, 0.0), 0.5 * core::f64::consts::PI),
+        };
+
+        let mesh = mesh::mk_meshes("data/teapot.obj", [0.0, 0.5, 0.5, 1.0]).unwrap();
+
+        GameObject {
+            mesh: mesh::condense_mesh(&mesh),
+            pose: pose.rotate(R3::zero(), rotation),
+
+            acceleration: R3::zero(),
+            velocity: R3::zero(),
+
+            angular_acceleration: rotation.rotate(&R3::new(0.0, 0.0, -0.0)),
+            angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, -1.0))
+        }
+    }
+
+    fn ship(rotation: Quaternion) -> GameObject {
+        let pose = pose::Pose {
+            pos: R3::new(50.0, 0.0, 0.0),
+            orientation: Quaternion::rotation(R3::new(0.0, 1.0, 0.0), 0.5 * core::f64::consts::PI),
+        };
+
+        let mesh = mesh::mk_meshes("models/hole-ship-wire.obj", [0.0, 0.5, 0.5, 1.0]).unwrap();
+        // println!("{:?}", mesh::condense_mesh(&mesh));
+
+        GameObject {
+            mesh: mesh::condense_mesh(&mesh),
+            pose: pose.rotate(R3::zero(), rotation),
+
+            acceleration: R3::zero(),
+            velocity: R3::zero(),
+
+            angular_acceleration: rotation.rotate(&R3::new(0.0, 0.0, 0.0)),
+            angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, -0.25))
+        }
+    }
+
     App {
         gl,
 
@@ -105,9 +166,17 @@ fn initial_app(
         camera,
 
         objects: vec![
-            cube(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), (2.0/3.0) * core::f64::consts::PI)),
-            cube(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), -(2.0/3.0) * core::f64::consts::PI)),
-            cube(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), 0.0 * core::f64::consts::PI)),
+            // diamond(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), 0.0 * core::f64::consts::PI)),
+            // cube(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), (2.0/3.0) * core::f64::consts::PI)),
+            // cube(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), -(2.0/3.0) * core::f64::consts::PI)),
+
+            // teapot(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), 0.0 * core::f64::consts::PI)),
+            // teapot(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), (2.0/3.0) * core::f64::consts::PI)),
+            // teapot(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), -(2.0/3.0) * core::f64::consts::PI)),
+
+            // diamond(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), -(2.0/3.0) * core::f64::consts::PI)),
+
+            ship(Quaternion::zero_rotation()),
         ],
         // in_cube: false,
         // score: 0,
