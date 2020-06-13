@@ -1,6 +1,6 @@
 use std::ops;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct R3 {
     pub x: f64,
     pub y: f64,

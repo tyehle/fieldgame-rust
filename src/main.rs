@@ -85,6 +85,7 @@ fn initial_app(
 
             angular_acceleration: rotation.rotate(&R3::new(0.0, 0.0, -0.0)),
             angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, -1.0))
+            // angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, 0.0))
         }
     }
 
@@ -166,7 +167,7 @@ fn initial_app(
         camera,
 
         objects: vec![
-            // diamond(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), 0.0 * core::f64::consts::PI)),
+            // cube(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), 0.0 * core::f64::consts::PI)),
             // cube(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), (2.0/3.0) * core::f64::consts::PI)),
             // cube(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), -(2.0/3.0) * core::f64::consts::PI)),
 
@@ -175,6 +176,8 @@ fn initial_app(
             // teapot(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), -(2.0/3.0) * core::f64::consts::PI)),
 
             // diamond(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), -(2.0/3.0) * core::f64::consts::PI)),
+
+            // cube(Quaternion::zero_rotation()),
 
             ship(Quaternion::zero_rotation()),
         ],
@@ -231,13 +234,13 @@ impl App {
                     gl,
                 );
                 Ellipse::new_border(BLUE, 0.5).draw(
-                    rectangle::square(-270.0, -270.0, 540.0),
+                    rectangle::square(-269.5, -269.5, 539.0),
                     &c.draw_state,
                     c.transform.trans(x, y),
                     gl,
                 );
                 Ellipse::new_border(BLUE, 1.0).draw(
-                    rectangle::square(-540.0, -540.0, 1080.0),
+                    rectangle::square(-539.0, -539.0, 1078.0),
                     &c.draw_state,
                     c.transform.trans(x, y),
                     gl,
