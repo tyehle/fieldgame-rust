@@ -1,5 +1,5 @@
 use glutin_window::GlutinWindow as Window;
-use opengl_graphics::{GlGraphics, OpenGL};
+use opengl_graphics::{GlGraphics, GlyphCache, OpenGL, TextureSettings};
 use piston::event_loop::*;
 use piston::input::*;
 use piston::window::{OpenGLWindow, WindowSettings};
@@ -30,12 +30,17 @@ impl GameObject {
         self.angular_velocity += self.angular_acceleration * dt;
         // q_next = ( 1 + 1/2 * dt * angular_velocity ) * q
         // see https://gamedev.stackexchange.com/a/157018
-        self.pose.orientation = Quaternion::from_real_imaginary(1.0, &(self.angular_velocity * 0.5 * dt)) * self.pose.orientation;
+        self.pose.orientation =
+            Quaternion::from_real_imaginary(1.0, &(self.angular_velocity * 0.5 * dt))
+                * self.pose.orientation;
     }
 }
 
 pub struct App {
     gl: GlGraphics, // OpenGL drawing backend
+    glyph_cache: GlyphCache<'static>,
+
+    fps: f64,
 
     // input
     control_magnitude: f64, // size of roll control input
@@ -46,6 +51,11 @@ pub struct App {
     forward: bool,
     back: bool,
     draw_hud: bool,
+
+    mouse_left: bool,
+    mouse_right: bool,
+    mouse_mov: [f64; 2],
+    mouse_scroll: [f64; 2],
 
     // player state
     acceleration: f64,
@@ -66,14 +76,16 @@ fn initial_app(
     control_magnitude: f64,
     acceleration: f64,
     velocity: f64,
-    camera: render::Camera,
     // last_score: SystemTime,
     // timeout_sec: u32,
 ) -> App {
     fn cube(rotation: Quaternion) -> GameObject {
         let pose = pose::Pose {
-            pos: R3::new(100.0 * (2.0/3.0_f64).sqrt() * 1.5, 0.0, 0.0),
-            orientation: Quaternion::rotation(R3::new(1.0, -1.0, 0.0).normalized(), (1.0/3_f64.sqrt()).acos()),
+            pos: R3::new(100.0 * (2.0 / 3.0_f64).sqrt() * 1.5, 0.0, 0.0),
+            orientation: Quaternion::rotation(
+                R3::new(1.0, -1.0, 0.0).normalized(),
+                (1.0 / 3_f64.sqrt()).acos(),
+            ),
         };
 
         GameObject {
@@ -84,14 +96,13 @@ fn initial_app(
             velocity: R3::zero(),
 
             angular_acceleration: rotation.rotate(&R3::new(0.0, 0.0, -0.0)),
-            angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, -1.0))
-            // angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, 0.0))
+            angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, -1.0)), // angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, 0.0))
         }
     }
 
     fn diamond(rotation: Quaternion) -> GameObject {
         let pose = pose::Pose {
-            pos: R3::new(100.0 * (2.0/3.0_f64).sqrt() * 1.5, 0.0, 0.0),
+            pos: R3::new(100.0 * (2.0 / 3.0_f64).sqrt() * 1.5, 0.0, 0.0),
             orientation: Quaternion::zero_rotation(),
         };
 
@@ -105,14 +116,15 @@ fn initial_app(
             velocity: R3::zero(),
 
             angular_acceleration: rotation.rotate(&R3::new(0.0, 0.0, -0.0)),
-            angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, -1.0))
+            angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, -1.0)),
         }
     }
 
     fn teapot(rotation: Quaternion) -> GameObject {
         let pose = pose::Pose {
             pos: R3::new(5.0, 0.0, 2.0),
-            orientation: Quaternion::rotation(R3::new(0.0, 0.0, -1.0), 0.5 * core::f64::consts::PI) * Quaternion::rotation(R3::new(-1.0, 0.0, 0.0), 0.5 * core::f64::consts::PI),
+            orientation: Quaternion::rotation(R3::new(0.0, 0.0, -1.0), 0.5 * core::f64::consts::PI)
+                * Quaternion::rotation(R3::new(-1.0, 0.0, 0.0), 0.5 * core::f64::consts::PI),
         };
 
         let mesh = mesh::mk_meshes("data/teapot.obj", [0.0, 0.5, 0.5, 1.0]).unwrap();
@@ -125,14 +137,14 @@ fn initial_app(
             velocity: R3::zero(),
 
             angular_acceleration: rotation.rotate(&R3::new(0.0, 0.0, -0.0)),
-            angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, -1.0))
+            angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, -1.0)),
         }
     }
 
     fn ship(rotation: Quaternion) -> GameObject {
         let pose = pose::Pose {
-            pos: R3::new(50.0, 0.0, 0.0),
-            orientation: Quaternion::rotation(R3::new(0.0, 1.0, 0.0), 0.5 * core::f64::consts::PI),
+            pos: R3::new(0.0, 0.0, 0.0),
+            orientation: Quaternion::rotation(R3::new(0.0, 0.0, -1.0), 0.5 * core::f64::consts::PI),
         };
 
         let mesh = mesh::mk_meshes("models/hole-ship-wire.obj", [0.0, 0.5, 0.5, 1.0]).unwrap();
@@ -146,12 +158,30 @@ fn initial_app(
             velocity: R3::zero(),
 
             angular_acceleration: rotation.rotate(&R3::new(0.0, 0.0, 0.0)),
-            angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, -0.25))
+            angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, -0.25)),
         }
     }
 
+    let camera = render::Camera {
+        position: R3 {
+            x: -50.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        orientation: Quaternion {
+            r: 1.0,
+            i: 0.0,
+            j: 0.0,
+            k: 0.0,
+        },
+        scale: 1080.0 / std::f64::consts::PI / 2.0,
+    };
+
     App {
         gl,
+        glyph_cache: GlyphCache::new("OpenSans-Regular.ttf", (), TextureSettings::new()).unwrap(),
+
+        fps: 0.0,
 
         control_magnitude,
         left: false,
@@ -161,6 +191,11 @@ fn initial_app(
         forward: false,
         back: false,
         draw_hud: true,
+
+        mouse_left: false,
+        mouse_right: false,
+        mouse_mov: [0.0, 0.0],
+        mouse_scroll: [0.0, 0.0],
 
         acceleration,
         velocity,
@@ -178,8 +213,7 @@ fn initial_app(
             // diamond(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), -(2.0/3.0) * core::f64::consts::PI)),
 
             // cube(Quaternion::zero_rotation()),
-
-            ship(Quaternion::zero_rotation()),
+            ship(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), 0.25 * core::f64::consts::PI)),
         ],
         // in_cube: false,
         // score: 0,
@@ -202,6 +236,8 @@ impl App {
         let camera = self.camera;
         let draw_hud = self.draw_hud;
         let objects = &self.objects;
+        let glyph_cache = &mut self.glyph_cache;
+        let fps = self.fps;
 
         self.gl.draw(args.viewport(), |c, gl| {
             // Clear the screen.
@@ -245,11 +281,67 @@ impl App {
                     c.transform.trans(x, y),
                     gl,
                 );
+
+                let info = format!(
+                    "FPS: {}\ncamera position: ({:.2}, {:.2}, {:.2})",
+                    fps, camera.position.x, camera.position.y, camera.position.z
+                );
+
+                for (i, line) in info.lines().enumerate() {
+                    Text::new_color(BLUE, 14)
+                        .draw(
+                            line,
+                            glyph_cache,
+                            &c.draw_state,
+                            c.transform.trans(10.0, 21.0 * (i as f64) + 24.0),
+                            gl,
+                        )
+                        .unwrap();
+                }
             }
         });
     }
 
     fn update(&mut self, args: UpdateArgs) {
+        const FORWARD: R3 = R3 {
+            x: 1.0,
+            y: 0.0,
+            z: 0.0,
+        };
+
+        const RIGHT: R3 = R3 {
+            x: 0.0,
+            y: 1.0,
+            z: 0.0,
+        };
+
+        // move the camera with the mouse
+        if self.mouse_right && self.mouse_mov != [0.0, 0.0] {
+            let speed = 0.01;
+
+            let angular_velocity = R3::new(0.0, -self.mouse_mov[1], self.mouse_mov[0]) * speed;
+            let axis = self
+                .camera
+                .orientation
+                .rotate(&angular_velocity.normalized());
+            let angle = angular_velocity.norm();
+            let rotation = Quaternion::rotation(axis, angle);
+
+            self.camera.position = rotation.rotate(&self.camera.position);
+            self.camera.orientation = rotation * self.camera.orientation;
+        }
+        self.mouse_mov = [0.0, 0.0];
+
+        if self.mouse_scroll[1] != 0.0 {
+            let distance = self.camera.position.norm();
+            let speed = 0.05;
+
+            let velocity = self.mouse_scroll[1] * distance * speed;
+
+            self.camera.position += self.camera.orientation.rotate(&R3::new(velocity, 0.0, 0.0));
+        }
+        self.mouse_scroll = [0.0, 0.0];
+
         // pitch
         let pitch_rate = {
             if self.forward && !self.back {
@@ -259,11 +351,6 @@ impl App {
             } else {
                 0.0
             }
-        };
-        const RIGHT: R3 = R3 {
-            x: 0.0,
-            y: 1.0,
-            z: 0.0,
         };
         let o1 = self.camera.orientation * Quaternion::rotation(RIGHT, pitch_rate * args.dt);
 
@@ -278,11 +365,6 @@ impl App {
             }
         };
         // rotate around the new forward vector to keep them orthogonal
-        const FORWARD: R3 = R3 {
-            x: 1.0,
-            y: 0.0,
-            z: 0.0,
-        };
         let orientation = o1 * Quaternion::rotation(FORWARD, roll_rate * args.dt);
 
         // speed
@@ -308,6 +390,9 @@ impl App {
         for obj in self.objects.iter_mut() {
             obj.physics_step(args.dt);
         }
+
+        // compute our frame rate
+        self.fps = 1.0 / args.dt;
 
         // let was_inside = self.in_cube;
         // self.in_cube = inside(
@@ -336,6 +421,9 @@ impl App {
         };
 
         match args.button {
+            Button::Mouse(MouseButton::Left) => self.mouse_left = pressed,
+            Button::Mouse(MouseButton::Right) => self.mouse_right = pressed,
+
             Button::Keyboard(Key::D) => self.right = pressed,
             Button::Keyboard(Key::A) => self.left = pressed,
             Button::Keyboard(Key::W) => self.forward = pressed,
@@ -355,6 +443,23 @@ impl App {
             // Button::Keyboard(Key::LShift) => {},
             _ => {}
         }
+    }
+
+    fn mouse(&mut self, args: Motion) {
+        match args {
+            // Motion::MouseCursor([a, b]) => dbg!(args),
+            Motion::MouseRelative(mov) => {
+                self.mouse_mov[0] += mov[0];
+                self.mouse_mov[1] += mov[1];
+            }
+
+            Motion::MouseScroll(mov) => {
+                self.mouse_scroll[0] += mov[0];
+                self.mouse_scroll[1] += mov[1];
+            }
+
+            _ => {}
+        };
     }
 }
 
@@ -377,43 +482,29 @@ fn main() {
         .exit_on_esc(true)
         .fullscreen(true)
         .vsync(true)
+        // .samples(4)
         .build()
         .unwrap();
 
     // init the opengl function pointers
     gl::load_with(|s| window.get_proc_address(s) as *const _);
 
-    let camera = render::Camera {
-        position: R3 {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-        },
-        orientation: Quaternion {
-            r: 1.0,
-            i: 0.0,
-            j: 0.0,
-            k: 0.0,
-        },
-        scale: 1080.0 / std::f64::consts::PI / 2.0,
-    };
-
     let mut app = initial_app(
         GlGraphics::new(opengl),
         1.0,
         40.0,
         0.0,
-        camera,
         // SystemTime::now(),
         // 10,
     );
 
-    let mut events = Events::new(EventSettings::new());
+    let mut events = Events::new(EventSettings::new().max_fps(60).ups(60));
     while let Some(e) = events.next(&mut window) {
         match e {
             Event::Loop(Loop::Render(args)) => app.render(args),
             Event::Loop(Loop::Update(args)) => app.update(args),
             Event::Input(Input::Button(args), _) => app.button(args),
+            Event::Input(Input::Move(args), _) => app.mouse(args),
             _ => {}
         }
     }

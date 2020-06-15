@@ -1,6 +1,6 @@
 use graphics;
-use std::fs;
 use std::collections::HashMap;
+use std::fs;
 use wavefront_obj::obj;
 
 use graphics::types::Color;
@@ -16,18 +16,22 @@ pub fn condense_mesh(mesh: &Mesh) -> Mesh {
         match vertices.iter().position(|&nv| nv == v) {
             Some(index) => {
                 mapping.push(index);
-            },
+            }
 
             None => {
                 mapping.push(vertices.len());
                 vertices.push(v);
-            },
+            }
         }
     }
 
     Mesh {
         vertices,
-        edges: mesh.edges.iter().map(|&(a, b)| (mapping[a], mapping[b])).collect(),
+        edges: mesh
+            .edges
+            .iter()
+            .map(|&(a, b)| (mapping[a], mapping[b]))
+            .collect(),
 
         lines: mesh.lines.clone(),
         triangles: mesh.triangles.clone(),
@@ -46,7 +50,12 @@ pub fn mk_meshes(path: &str, color: Color) -> Result<Mesh, String> {
     let mut edge_map = HashMap::new();
     let mut edges = Vec::new();
 
-    fn get_edge(edges: &mut Vec<(usize, usize)>, edge_map: &mut HashMap<(usize, usize), usize>, a: usize, b: usize) -> usize {
+    fn get_edge(
+        edges: &mut Vec<(usize, usize)>,
+        edge_map: &mut HashMap<(usize, usize), usize>,
+        a: usize,
+        b: usize,
+    ) -> usize {
         if b < a {
             get_edge(edges, edge_map, b, a)
         } else {
@@ -81,7 +90,7 @@ pub fn mk_meshes(path: &str, color: Color) -> Result<Mesh, String> {
                         let a = obj_a + vertex_offset;
                         let b = obj_b + vertex_offset;
                         lines.push((get_edge(&mut edges, &mut edge_map, a, b), color));
-                    },
+                    }
 
                     obj::Primitive::Triangle((obj_a, _, _an), (obj_b, _, _bn), (obj_c, _, _cn)) => {
                         let a = obj_a + vertex_offset;
@@ -94,12 +103,15 @@ pub fn mk_meshes(path: &str, color: Color) -> Result<Mesh, String> {
                         // lines.push((ab, color));
                         // lines.push((bc, color));
                         // lines.push((ca, color));
-                        triangles.push(([
-                            (ab, edges[ab].0 != a),
-                            (bc, edges[bc].0 != b),
-                            (ca, edges[ca].0 != c),
-                        ], face_color));
-                    },
+                        triangles.push((
+                            [
+                                (ab, edges[ab].0 != a),
+                                (bc, edges[bc].0 != b),
+                                (ca, edges[ca].0 != c),
+                            ],
+                            face_color,
+                        ));
+                    }
                 }
             }
         }
@@ -113,7 +125,6 @@ pub fn mk_meshes(path: &str, color: Color) -> Result<Mesh, String> {
         parallelograms: Vec::new(),
     })
 }
-
 
 #[derive(Debug)]
 pub struct Mesh {
