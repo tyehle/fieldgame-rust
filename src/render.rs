@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use gl;
 use graphics::Graphics;
 use graphics::Transformed;
@@ -22,6 +24,74 @@ pub trait Renderable {
     );
 }
 
+/// The difference between two angles
+/// Inputs should be between -pi and pi, and the output will between -pi and pi.
+pub fn angle_difference(start: f64, end: f64) -> f64 {
+    let pi = std::f64::consts::PI;
+    let angle = end - start;
+    if angle > pi {
+        angle - 2.0*pi
+    } else if angle < -pi {
+        angle + 2.0*pi
+    } else {
+        angle
+    }
+}
+
+/// Checks if a point is behind the camera
+fn is_behind(p: &R3, camera: &Camera) -> bool {
+    let forward = camera.orientation.rotate(&R3::new(1.0, 0.0, 0.0));
+    return dot(&(*p - camera.position), &forward) < 0.0;
+}
+
+/// Push a set of points approximating a circle arc between start and end
+fn approximate_circle<F>(
+    start_x: f64,
+    start_y: f64,
+    end_x: f64,
+    end_y: f64,
+    mut push_result: F
+) where F: FnMut([f64; 2]) {
+    const CIRCLE_RES: f64 = 0.1; // min point spacing in radians
+
+    let start_radius = (start_x.powi(2) + start_y.powi(2)).sqrt();
+    let end_radius = (end_x.powi(2) + end_y.powi(2)).sqrt();
+
+    let start_angle = start_y.atan2(start_x);
+    let end_angle = end_y.atan2(end_x);
+
+    // find angle between start and end
+    let angle_span = angle_difference(start_angle, end_angle);
+    let count = (angle_span.abs() / CIRCLE_RES).ceil() as i32;
+    let step = angle_span / (count as f64);
+    let radius_step = (end_radius - start_radius) / (count as f64);
+
+    // add each point
+    let mut i = 1;
+    let mut a = start_angle + step;
+    let mut r = start_radius + radius_step;
+    loop {
+        if i >= count {
+            break;
+        }
+        push_result([a.cos() * r, a.sin() * r]);
+        i += 1;
+        a += step;
+        r += radius_step;
+    }
+
+    // println!("angle_span: {:.2}, count: {}, step: {:.2}", angle_span, count, step);
+}
+
+/// Approximates the projection of a line in R3 to R2.
+///
+/// The `resolution` and `max_split` arguments control how fine the
+/// approximation is. If two projected points are farther than `resolution`
+/// pixels apart, then midpoint of those two points in R3 is also projected.
+/// This process will continue until the projected points are closer than
+/// `resolution`, or until the line has been split `max_split` times.
+///
+/// If the split limit is hit, then instead of rendering line segments between the remaining points
 pub fn approximate_curve(
     a: &R3,
     b: &R3,
@@ -35,28 +105,36 @@ pub fn approximate_curve(
     done.push((*a, to_screen_space(a, &camera)));
     todo.push((*b, to_screen_space(b, &camera)));
 
-    let mut level = 0;
     let mut branch_done = Vec::new();
     branch_done.push(false);
-    while let Some((end, [end_x, end_y])) = todo.pop() {
-        let (begin, [begin_x, begin_y]) = done.last().expect("???");
+
+    let finish_branch = |branch_done: &mut Vec<bool>| {
+        // finish up all the branches we are done with, and our branch
+        while branch_done.pop().unwrap() {}
+        // note that we are now done with our branch
+        branch_done.push(true);
+    };
+
+    while let Some((end, [end_x, end_y])) = todo.last() {
+        let (begin, [begin_x, begin_y]) = done.last().unwrap();
 
         let distance = ((begin_x - end_x).powi(2) + (begin_y - end_y).powi(2)).sqrt();
 
-        if distance <= resolution || level >= max_split {
-            done.push((end, [end_x, end_y]));
-
-            // complete all the branches we should
-            while branch_done.pop().expect("???") {
-                level -= 1;
+        if distance <= resolution {
+            // we are done with this level
+            done.push(todo.pop().unwrap());
+            finish_branch(&mut branch_done);
+        } else if branch_done.len() > max_split.try_into().unwrap() {
+            // can't do any more splits, instead switch to approximating a circle if the points are behind us
+            if is_behind(begin, &camera) && is_behind(end, &camera) {
+                approximate_circle(*begin_x, *begin_y, *end_x, *end_y, |pos| { done.push((*end, pos)) });
             }
-            // note we are now going to finish this branch
-            branch_done.push(true);
+            done.push(todo.pop().unwrap());
+            finish_branch(&mut branch_done);
         } else {
-            todo.push((end, [end_x, end_y]));
-            let mid = midpoint(begin, &end);
+            // split
+            let mid = midpoint(begin, end);
             todo.push((mid, to_screen_space(&mid, &camera)));
-            level += 1;
             branch_done.push(false);
         }
     }
@@ -67,6 +145,7 @@ pub fn approximate_curve(
 pub fn render_curve(
     color: graphics::types::Color,
     points: &[[f64; 2]],
+    debug: bool,
     c: &graphics::Context,
     g: &mut opengl_graphics::GlGraphics,
     center: graphics::math::Matrix2d,
@@ -86,14 +165,16 @@ pub fn render_curve(
                     g,
                 );
                 // debug dots
-                // if i != points.len() - 1 {
-                //     graphics::Ellipse::new([1.0, 1.0, 1.0, 0.5]).draw(
-                //         graphics::ellipse::circle(0.0, 0.0, 2.0),
-                //         &c.draw_state,
-                //         center.trans(next[0], next[1]),
-                //         g,
-                //     );
-                // }
+                if debug {
+                    if i != points.len() - 1 {
+                        graphics::Ellipse::new([1.0, 1.0, 1.0, 0.5]).draw(
+                            graphics::ellipse::circle(0.0, 0.0, 2.0),
+                            &c.draw_state,
+                            center.trans(next[0], next[1]),
+                            g,
+                        );
+                    }
+                }
                 prev = next;
             }
         }

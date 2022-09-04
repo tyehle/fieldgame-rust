@@ -226,6 +226,7 @@ pub fn intersects_triangle(origin: &R3, direction: &R3, face: &[R3; 3]) -> bool 
 pub fn render_mesh(
     mesh: &Mesh,
     pose: &Pose,
+    debug: bool,
     context: &graphics::Context,
     g: &mut opengl_graphics::GlGraphics,
     camera: Camera,
@@ -255,7 +256,7 @@ pub fn render_mesh(
         .collect::<Vec<_>>();
 
     for (ci, color) in &mesh.lines {
-        render_curve(*color, &curves[*ci], context, g, center);
+        render_curve(*color, &curves[*ci], debug, context, g, center);
     }
 
     let backward = camera.orientation.rotate(&R3 {

@@ -64,7 +64,8 @@ pub struct App {
 
     // game objects
     objects: Vec<GameObject>,
-    // // Game state
+    // Game state
+    debug: bool,
     // in_cube: bool,
     // score: i32,
     // last_score: SystemTime,
@@ -96,7 +97,8 @@ fn initial_app(
             velocity: R3::zero(),
 
             angular_acceleration: rotation.rotate(&R3::new(0.0, 0.0, -0.0)),
-            angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, -1.0)), // angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, 0.0))
+            // angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, -1.0)),
+            angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, 0.0))
         }
     }
 
@@ -163,17 +165,8 @@ fn initial_app(
     }
 
     let camera = render::Camera {
-        position: R3 {
-            x: -50.0,
-            y: 0.0,
-            z: 0.0,
-        },
-        orientation: Quaternion {
-            r: 1.0,
-            i: 0.0,
-            j: 0.0,
-            k: 0.0,
-        },
+        position: R3::new(-30.0, 0.0, -30.0),
+        orientation: Quaternion::rotation(R3::new(0.0, -1.0, 0.0), 0.25 * core::f64::consts::PI),
         scale: 1080.0 / std::f64::consts::PI / 2.0,
     };
 
@@ -212,9 +205,10 @@ fn initial_app(
 
             // diamond(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), -(2.0/3.0) * core::f64::consts::PI)),
 
-            // cube(Quaternion::zero_rotation()),
-            ship(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), 0.25 * core::f64::consts::PI)),
+            cube(Quaternion::zero_rotation()),
+            // ship(Quaternion::zero_rotation()),
         ],
+        debug: false,
         // in_cube: false,
         // score: 0,
         // last_score,
@@ -238,6 +232,7 @@ impl App {
         let objects = &self.objects;
         let glyph_cache = &mut self.glyph_cache;
         let fps = self.fps;
+        let debug = self.debug;
 
         self.gl.draw(args.viewport(), |c, gl| {
             // Clear the screen.
@@ -247,6 +242,7 @@ impl App {
                 mesh::render_mesh(
                     &obj.mesh,
                     &obj.pose,
+                    debug,
                     &c,
                     gl,
                     camera,
@@ -440,6 +436,11 @@ impl App {
                     self.velocity = 0.0;
                 }
             }
+            Button::Keyboard(Key::P) => {
+                if pressed {
+                    self.debug = !self.debug;
+                }
+            }
             // Button::Keyboard(Key::LShift) => {},
             _ => {}
         }
@@ -474,7 +475,7 @@ impl App {
 
 fn main() {
     // Change this to OpenGL::V2_1 if not working.
-    let opengl = OpenGL::V3_2;
+    let opengl = OpenGL::V4_5;
 
     // Create a Glutin window.
     let mut window: Window = WindowSettings::new("spinning-square", [800, 600])
