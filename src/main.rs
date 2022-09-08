@@ -107,6 +107,27 @@ fn initial_app(
         }
     }
 
+    fn octahedron(rotation: Quaternion) -> GameObject {
+        let pose = pose::Pose {
+            pos: R3::new(0.0, 0.0, 0.0),
+            orientation: Quaternion::zero_rotation(),
+        };
+
+        let mesh = mesh::mk_meshes("data/octahedron.obj", [0.0, 0.33, 0.67, 1.0]).unwrap();
+
+        GameObject {
+            mesh: mesh::scale(mesh, 0.25),
+            pose: pose.rotate(R3::zero(), rotation),
+
+            acceleration: R3::zero(),
+            velocity: R3::zero(),
+
+            angular_acceleration: rotation.rotate(&R3::new(0.0, 0.0, -0.0)),
+            angular_velocity: R3::zero(),
+            // angular_velocity: rotation.rotate(&R3::new(0.0, 0.0, -1.0)),
+        }
+    }
+
     fn diamond(rotation: Quaternion) -> GameObject {
         let pose = pose::Pose {
             pos: R3::new(100.0 * (2.0 / 3.0_f64).sqrt() * 1.5, 0.0, 0.0),
@@ -212,7 +233,8 @@ fn initial_app(
 
             // diamond(Quaternion::rotation(R3::new(0.0, 1.0, 0.0), -(2.0/3.0) * core::f64::consts::PI)),
 
-            cube(Quaternion::zero_rotation()),
+            // cube(Quaternion::zero_rotation()),
+            octahedron(Quaternion::zero_rotation()),
             // ship(Quaternion::zero_rotation()),
         ],
         debug: false,

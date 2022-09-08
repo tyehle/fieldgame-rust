@@ -135,6 +135,13 @@ pub struct Mesh {
     pub parallelograms: Vec<([(usize, bool); 4], Color)>,
 }
 
+pub fn scale(mesh: Mesh, factor: f64) -> Mesh {
+    Mesh {
+        vertices: mesh.vertices.iter().map(|p| {*p * factor}).collect(),
+        ..mesh
+    }
+}
+
 /// A cuboid mesh with a given size and color
 pub fn cuboid(size: R3, color: Color) -> Mesh {
     let half_size = size * 0.5;
