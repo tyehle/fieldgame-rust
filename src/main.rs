@@ -1,3 +1,6 @@
+use std::time::Duration;
+use std::time::Instant;
+
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{GlGraphics, GlyphCache, OpenGL, TextureSettings};
 use piston::event_loop::*;
@@ -40,6 +43,8 @@ pub struct App {
     gl: GlGraphics, // OpenGL drawing backend
     glyph_cache: GlyphCache<'static>,
 
+    prev_fps_update: Instant,
+    frames_since_prev_fps: i32,
     fps: f64,
 
     // input
@@ -174,6 +179,8 @@ fn initial_app(
         gl,
         glyph_cache: GlyphCache::new("OpenSans-Regular.ttf", (), TextureSettings::new()).unwrap(),
 
+        prev_fps_update: Instant::now(),
+        frames_since_prev_fps: 0,
         fps: 0.0,
 
         control_magnitude,
@@ -279,7 +286,7 @@ impl App {
                 );
 
                 let info = format!(
-                    "FPS: {}\ncamera position: ({:.2}, {:.2}, {:.2})",
+                    "FPS: {:.2}\ncamera position: ({:.2}, {:.2}, {:.2})",
                     fps, camera.position.x, camera.position.y, camera.position.z
                 );
 
@@ -387,8 +394,7 @@ impl App {
             obj.physics_step(args.dt);
         }
 
-        // compute our frame rate
-        self.fps = 1.0 / args.dt;
+        update_fps(self);
 
         // let was_inside = self.in_cube;
         // self.in_cube = inside(
@@ -461,6 +467,21 @@ impl App {
 
             _ => {}
         };
+    }
+}
+
+/// Update the fps stats stored in app
+fn update_fps(app: &mut App) {
+    const MIN_FPS_UPDATE_INTERVAL_SECONDS: Duration = Duration::new(1, 0);
+
+    app.frames_since_prev_fps += 1;
+
+    let duration = app.prev_fps_update.elapsed();
+    if duration >= MIN_FPS_UPDATE_INTERVAL_SECONDS {
+        // time to update the fps counter
+        app.prev_fps_update = Instant::now();
+        app.fps = app.frames_since_prev_fps as f64 / duration.as_secs_f64();
+        app.frames_since_prev_fps = 0;
     }
 }
 
